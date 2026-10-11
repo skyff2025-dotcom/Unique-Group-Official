@@ -3,10 +3,12 @@ import { Phone, MessageSquare, Send } from 'lucide-react';
 import { VisualAsset } from '../common/VisualAsset';
 import { EnquiryModal } from '../common/EnquiryModal';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
+import { buildWhatsAppUrl, WHATSAPP_CONFIG } from '../../lib/whatsapp';
 
 export const CTASection: React.FC = () => {
   const settings = useSiteSettings();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const whatsappUrl = buildWhatsAppUrl(`Hello ${WHATSAPP_CONFIG.businessName}, I would like to consult with Gaurav Shah.`);
 
   return (
     <section className="relative py-24 sm:py-32 bg-[#050D1A] text-white overflow-hidden">
@@ -57,17 +59,15 @@ export const CTASection: React.FC = () => {
             <span>Call ({settings.displayPhone})</span>
           </a>
 
-          {settings.whatsapp && (
-            <a
-              href={`https://wa.me/${settings.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent('Hello UNIQUE GROUP, I would like to consult with you.')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto min-h-[50px] inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded bg-emerald-600/90 hover:bg-emerald-600 text-white font-medium text-xs uppercase tracking-wider backdrop-blur-md transition-all duration-200 shadow-md"
-            >
-              <MessageSquare className="w-4 h-4 text-white" />
-              <span>WhatsApp</span>
-            </a>
-          )}
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full sm:w-auto min-h-[50px] inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded bg-emerald-600/90 hover:bg-emerald-600 text-white font-medium text-xs uppercase tracking-wider backdrop-blur-md transition-all duration-200 shadow-md"
+          >
+            <MessageSquare className="w-4 h-4 text-white" />
+            <span>WhatsApp</span>
+          </a>
         </div>
 
         <div className="pt-2 text-xs text-slate-400">
@@ -82,8 +82,9 @@ export const CTASection: React.FC = () => {
         initialServiceType="General Enquiry"
         title="Schedule Advisory Consultation"
         subtitle="Speak with Gaurav Shah for real estate acquisitions, insurance policies, or loan sanction guidance."
-        submitButtonText="Send Enquiry / Request Callback"
+        submitButtonText="Enquire on WhatsApp"
       />
     </section>
   );
 };
+

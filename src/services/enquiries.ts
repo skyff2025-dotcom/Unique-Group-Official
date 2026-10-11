@@ -1,11 +1,13 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { EnquirySubmission } from '../types';
+import { buildWhatsAppUrl, WhatsAppEnquiryDetails } from '../lib/whatsapp';
 
 export interface EnquiryResult {
   success: boolean;
   message: string;
   enquiryId?: string;
   error?: string;
+  whatsappUrl?: string;
 }
 
 export interface ExtendedEnquiryPayload {

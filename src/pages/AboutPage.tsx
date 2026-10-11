@@ -5,7 +5,8 @@ import { VisualAsset } from '../components/common/VisualAsset';
 import { getTestimonials } from '../services/settings';
 import { Testimonial } from '../types';
 import { useSiteSettings } from '../context/SiteSettingsContext';
-import { MapPin, Phone, Mail, Shield, Award, Users, ArrowRight, Quote } from 'lucide-react';
+import { MapPin, Phone, Mail, Shield, Award, Users, ArrowRight, Quote, MessageSquare } from 'lucide-react';
+import { buildWhatsAppUrl, WHATSAPP_CONFIG } from '../lib/whatsapp';
 
 export const AboutPage: React.FC = () => {
   const settings = useSiteSettings();
@@ -201,6 +202,15 @@ export const AboutPage: React.FC = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
+            <a
+              href={buildWhatsAppUrl(`Hello ${WHATSAPP_CONFIG.businessName}, I would like to consult with Gaurav Shah.`)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="min-h-[48px] px-6 py-3 rounded bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-2 shadow-xs"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>WhatsApp Us</span>
+            </a>
             <a
               href={`tel:${settings.phone}`}
               className="min-h-[48px] px-6 py-3 rounded bg-[#C5A059] text-[#050D1A] font-bold text-xs uppercase tracking-wider hover:bg-[#D4B46C] transition-colors"

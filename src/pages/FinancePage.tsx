@@ -9,6 +9,7 @@ import { CompanyCardSkeleton, PlanCardSkeleton } from '../components/common/Skel
 import { EmptyState } from '../components/common/EmptyState';
 import { EnquiryModal } from '../components/common/EnquiryModal';
 import { useSiteSettings } from '../context/SiteSettingsContext';
+import { buildWhatsAppUrl, WHATSAPP_CONFIG } from '../lib/whatsapp';
 
 export const FinancePage: React.FC = () => {
   const settings = useSiteSettings();
@@ -100,17 +101,15 @@ export const FinancePage: React.FC = () => {
               </p>
 
               <div className="pt-2 flex flex-wrap gap-3">
-                {settings.whatsapp && (
-                  <a
-                    href={`https://wa.me/${settings.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent('Hello Gauravbhai, I would like to check my Loan Eligibility.')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="min-h-[46px] inline-flex items-center gap-2 px-6 py-3 rounded bg-[#C5A059] hover:bg-[#D4B46C] text-[#050D1A] font-bold text-xs uppercase tracking-wider transition-colors"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    <span>Check Loan Eligibility with {settings.founder}</span>
-                  </a>
-                )}
+                <a
+                  href={buildWhatsAppUrl(`Hello ${WHATSAPP_CONFIG.recipientName}, I would like to check my loan eligibility for financing in Rajpipla.`)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-h-[46px] inline-flex items-center gap-2 px-6 py-3 rounded bg-[#C5A059] hover:bg-[#D4B46C] text-[#050D1A] font-bold text-xs uppercase tracking-wider transition-colors"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Check Loan Eligibility with {settings.founder}</span>
+                </a>
                 <a
                   href={`tel:${settings.phone}`}
                   className="min-h-[46px] inline-flex items-center gap-2 px-6 py-3 rounded bg-white/10 hover:bg-white/20 text-white font-semibold text-xs uppercase tracking-wider border border-white/20 transition-colors"
@@ -297,9 +296,7 @@ export const FinancePage: React.FC = () => {
                   </button>
 
                   <a
-                    href={`https://wa.me/${settings.whatsapp}?text=Hello%20Gauravbhai,%20I%20am%20enquiring%20about%20${encodeURIComponent(
-                      service.title
-                    )}.`}
+                    href={buildWhatsAppUrl(`Hello ${WHATSAPP_CONFIG.businessName}, I am enquiring about ${service.title} (${service.companyName}).`)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full sm:w-auto min-h-[44px] px-3.5 flex items-center justify-center gap-1.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold border border-emerald-200 transition-colors"
@@ -325,7 +322,7 @@ export const FinancePage: React.FC = () => {
           financeServiceTitle={`${selectedService.title} (${selectedService.companyName})`}
           title={`Enquire for ${selectedService.title}`}
           subtitle={`Lending partner: ${selectedService.companyName}. Speak directly with our loan advisory desk.`}
-          submitButtonText="Send Enquiry / Request Callback"
+          submitButtonText="Enquire on WhatsApp"
         />
       )}
     </div>

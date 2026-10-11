@@ -2,12 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Phone, MapPin, Mail, MessageSquare, Instagram, Facebook, Lock } from 'lucide-react';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
+import { buildWhatsAppUrl, WHATSAPP_CONFIG } from '../../lib/whatsapp';
 
 export const Footer: React.FC = () => {
   const settings = useSiteSettings();
-
-  const cleanWhatsApp = settings.whatsapp ? settings.whatsapp.replace(/\D/g, '') : '';
-  const waPrefilledMessage = encodeURIComponent('Hello UNIQUE GROUP, I would like to enquire about your services.');
+  const whatsappUrl = buildWhatsAppUrl(`Hello ${WHATSAPP_CONFIG.businessName}, I would like to enquire about your services.`);
 
   return (
     <footer className="bg-[#050D1A] text-white border-t border-[#18283E]">
@@ -43,60 +42,56 @@ export const Footer: React.FC = () => {
               across Rajpipla and Gujarat.
             </p>
 
-            {/* Social Links & Channels - Only rendered if URLs exist */}
-            {(cleanWhatsApp || settings.instagramUrl || settings.facebookUrl || settings.googleMapsUrl) && (
-              <div className="pt-2 flex flex-wrap items-center gap-3">
-                {cleanWhatsApp && (
-                  <a
-                    href={`https://wa.me/${cleanWhatsApp}?text=${waPrefilledMessage}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-10 h-10 rounded-full bg-[#112240] hover:bg-[#C5A059] hover:text-[#050D1A] transition-all flex items-center justify-center text-slate-300"
-                    aria-label={`WhatsApp ${settings.businessName}`}
-                    title="Chat on WhatsApp"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                  </a>
-                )}
-                {settings.instagramUrl && (
-                  <a
-                    href={settings.instagramUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-10 h-10 rounded-full bg-[#112240] hover:bg-[#C5A059] hover:text-[#050D1A] transition-all flex items-center justify-center text-slate-300"
-                    aria-label="Instagram profile"
-                    title="Instagram Profile"
-                  >
-                    <Instagram className="w-4 h-4" />
-                  </a>
-                )}
-                {settings.facebookUrl && (
-                  <a
-                    href={settings.facebookUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-10 h-10 rounded-full bg-[#112240] hover:bg-[#C5A059] hover:text-[#050D1A] transition-all flex items-center justify-center text-slate-300"
-                    aria-label="Facebook page"
-                    title="Facebook Page"
-                  >
-                    <Facebook className="w-4 h-4" />
-                  </a>
-                )}
-                {settings.googleMapsUrl && (
-                  <a
-                    href={settings.googleMapsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="h-10 px-3.5 rounded-full bg-[#112240] hover:bg-[#C5A059] hover:text-[#050D1A] transition-all flex items-center gap-2 text-xs font-medium text-slate-300"
-                    aria-label="View office on Google Maps"
-                    title="View on Google Maps"
-                  >
-                    <MapPin className="w-4 h-4 text-[#C5A059]" />
-                    <span>View on Google Maps</span>
-                  </a>
-                )}
-              </div>
-            )}
+            {/* Social Links & Channels */}
+            <div className="pt-2 flex flex-wrap items-center gap-3">
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-10 h-10 rounded-full bg-[#112240] hover:bg-[#C5A059] hover:text-[#050D1A] transition-all flex items-center justify-center text-slate-300"
+                aria-label={`WhatsApp ${settings.businessName}`}
+                title="Chat on WhatsApp"
+              >
+                <MessageSquare className="w-4 h-4" />
+              </a>
+              {settings.instagramUrl && (
+                <a
+                  href={settings.instagramUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 rounded-full bg-[#112240] hover:bg-[#C5A059] hover:text-[#050D1A] transition-all flex items-center justify-center text-slate-300"
+                  aria-label="Instagram profile"
+                  title="Instagram Profile"
+                >
+                  <Instagram className="w-4 h-4" />
+                </a>
+              )}
+              {settings.facebookUrl && (
+                <a
+                  href={settings.facebookUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 rounded-full bg-[#112240] hover:bg-[#C5A059] hover:text-[#050D1A] transition-all flex items-center justify-center text-slate-300"
+                  aria-label="Facebook page"
+                  title="Facebook Page"
+                >
+                  <Facebook className="w-4 h-4" />
+                </a>
+              )}
+              {settings.googleMapsUrl && (
+                <a
+                  href={settings.googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-10 px-3.5 rounded-full bg-[#112240] hover:bg-[#C5A059] hover:text-[#050D1A] transition-all flex items-center gap-2 text-xs font-medium text-slate-300"
+                  aria-label="View office on Google Maps"
+                  title="View on Google Maps"
+                >
+                  <MapPin className="w-4 h-4 text-[#C5A059]" />
+                  <span>View on Google Maps</span>
+                </a>
+              )}
+            </div>
           </div>
 
           {/* Col 2: Business Divisions (2 cols) */}

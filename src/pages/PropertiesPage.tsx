@@ -5,6 +5,7 @@ import { getProperties } from '../services/properties';
 import { Property } from '../types';
 import { Search, Phone, MessageSquare } from 'lucide-react';
 import { useSiteSettings } from '../context/SiteSettingsContext';
+import { buildWhatsAppUrl, WHATSAPP_CONFIG } from '../lib/whatsapp';
 
 export const PropertiesPage: React.FC = () => {
   const settings = useSiteSettings();
@@ -168,17 +169,15 @@ export const PropertiesPage: React.FC = () => {
               <Phone className="w-3.5 h-3.5 text-[#C5A059]" />
               <span>Call {settings.founder}</span>
             </a>
-            {settings.whatsapp && (
-              <a
-                href={`https://wa.me/${settings.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent('Hello Gauravbhai, I am looking for a specific property in Rajpipla.')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="min-h-[44px] flex items-center gap-2 px-5 py-2.5 rounded bg-[#C5A059] text-[#050D1A] text-xs font-bold uppercase tracking-wider hover:bg-[#D4B46C] transition-colors"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>WhatsApp</span>
-              </a>
-            )}
+            <a
+              href={buildWhatsAppUrl(`Hello ${WHATSAPP_CONFIG.recipientName}, I am looking for a specific property in Rajpipla.`)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="min-h-[44px] flex items-center gap-2 px-5 py-2.5 rounded bg-[#C5A059] text-[#050D1A] text-xs font-bold uppercase tracking-wider hover:bg-[#D4B46C] transition-colors"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>WhatsApp</span>
+            </a>
           </div>
         </div>
       </section>

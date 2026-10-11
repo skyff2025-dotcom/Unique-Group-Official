@@ -10,10 +10,12 @@ import {
   Send,
   AlertCircle,
   CheckCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { InsuranceCompany, InsurancePlan } from '../../types';
 import { submitEnquiry } from '../../services/enquiries';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
+import { buildWhatsAppUrl, openWhatsApp, WHATSAPP_CONFIG } from '../../lib/whatsapp';
 
 interface InsurancePlanDetailModalProps {
   plan: InsurancePlan | null;
@@ -31,7 +33,8 @@ export const InsurancePlanDetailModal: React.FC<InsurancePlanDetailModalProps> =
   const settings = useSiteSettings();
   const [showEnquiryForm, setShowEnquiryForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [whatsAppOpened, setWhatsAppOpened] = useState(false);
+  const [lastWhatsAppUrl, setLastWhatsAppUrl] = useState('');
   const [submitError, setSubmitError] = useState('');
 
   // Form State
@@ -45,47 +48,64 @@ export const InsurancePlanDetailModal: React.FC<InsurancePlanDetailModalProps> =
   if (!isOpen || !plan) return null;
 
   const contactPhone = plan.contactPhone || company.phone || settings.phone;
-  const cleanWhatsApp = settings.whatsapp ? settings.whatsapp.replace(/\D/g, '') : '';
 
-  const whatsappMessage = `Hello Unique Group, I am interested in the ${plan.title} insurance plan from ${company.name}. Please share more details.`;
-  const whatsappUrl = cleanWhatsApp ? `https://wa.me/${cleanWhatsApp}?text=${encodeURIComponent(whatsappMessage)}` : '';
+  const contextualChatText = `Hello ${WHATSAPP_CONFIG.businessName}, I am interested in the ${plan.title} insurance plan from ${company.name}. Please share more details.`;
+  const whatsappUrl = buildWhatsAppUrl(contextualChatText);
 
   const handleEnquirySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError('');
 
-    if (!formData.name.trim() || !formData.phone.trim()) {
-      setSubmitError('Please provide your name and phone number.');
+    const cleanName = formData.name.trim();
+    if (!cleanName) {
+      setSubmitError('Please enter your full name.');
+      return;
+    }
+
+    const cleanPhone = formData.phone.replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      setSubmitError('Please enter a valid 10-digit mobile number.');
       return;
     }
 
     setSubmitting(true);
 
+    const whatsappPayload = {
+      name: cleanName,
+      phone: formData.phone.trim(),
+      email: formData.email.trim() || undefined,
+      enquiryType: 'Insurance',
+      interestedIn: `${plan.title} (${company.name})`,
+      message: formData.message.trim() || undefined,
+    };
+
+    const targetUrl = buildWhatsAppUrl(whatsappPayload);
+    setLastWhatsAppUrl(targetUrl);
+
+    // Save to Supabase in background
     try {
-      const res = await submitEnquiry({
-        fullName: formData.name,
-        phoneNumber: formData.phone,
-        emailAddress: formData.email,
+      await submitEnquiry({
+        fullName: cleanName,
+        phoneNumber: formData.phone.trim(),
+        emailAddress: formData.email.trim() || undefined,
         division: 'insurance',
         insurancePlanId: plan.id,
+        interestedIn: `${plan.title} (${company.name})`,
         message: formData.message.trim() || `Inquiry regarding ${plan.title} (${company.name}).`,
       });
-
-      if (res.success) {
-        setSubmitSuccess(true);
-      } else {
-        setSubmitError(res.error || 'Failed to submit enquiry. Please try again.');
-      }
-    } catch (err: any) {
-      setSubmitError('An unexpected error occurred. Please call or WhatsApp us.');
-    } finally {
-      setSubmitting(false);
+    } catch (saveErr) {
+      console.warn('Supabase enquiry archive notice (continuing to WhatsApp):', saveErr);
     }
+
+    // Launch WhatsApp
+    openWhatsApp(whatsappPayload);
+    setWhatsAppOpened(true);
+    setSubmitting(false);
   };
 
   const handleClose = () => {
     setShowEnquiryForm(false);
-    setSubmitSuccess(false);
+    setWhatsAppOpened(false);
     setSubmitError('');
     setFormData({ name: '', phone: '', email: '', message: '' });
     onClose();
@@ -241,22 +261,43 @@ export const InsurancePlanDetailModal: React.FC<InsurancePlanDetailModalProps> =
               </button>
             </div>
 
-            {submitSuccess ? (
+            {whatsAppOpened ? (
               <div className="p-6 rounded-xl bg-emerald-50 border border-emerald-200 text-center space-y-3">
                 <CheckCircle className="w-10 h-10 text-emerald-600 mx-auto" />
-                <h4 className="font-serif text-lg font-bold text-emerald-900">
-                  Enquiry Submitted Successfully
+                <h4 className="font-serif text-lg font-bold text-emerald-950">
+                  WhatsApp Is Opening
                 </h4>
-                <p className="text-xs text-emerald-700 max-w-md mx-auto">
-                  Thank you! Our insurance advisory desk in Rajpipla has received your inquiry for <strong>{plan.title}</strong>. We will call you shortly with complete premium estimates and proposal forms.
+                <p className="text-xs text-emerald-800 max-w-md mx-auto leading-relaxed">
+                  WhatsApp is opening with your enquiry for <strong>{plan.title}</strong> ({company.name}). Please tap <strong>Send</strong> in WhatsApp to deliver your message to {WHATSAPP_CONFIG.recipientName}.
                 </p>
-                <div className="pt-2">
+                {lastWhatsAppUrl && (
+                  <div className="pt-2">
+                    <a
+                      href={lastWhatsAppUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-xs"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Tap to Open WhatsApp</span>
+                    </a>
+                  </div>
+                )}
+                <div className="pt-3 border-t border-emerald-200/60 mt-4 flex items-center justify-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setWhatsAppOpened(false)}
+                    className="text-xs font-semibold text-emerald-900 hover:underline"
+                  >
+                    Edit Details
+                  </button>
+                  <span className="text-emerald-300">·</span>
                   <button
                     type="button"
                     onClick={handleClose}
-                    className="min-h-[40px] px-6 py-2 rounded-lg bg-[#0A192F] text-[#E2C98D] text-xs font-bold uppercase tracking-wider"
+                    className="text-xs font-semibold text-[#0A192F] hover:underline"
                   >
-                    Done
+                    Close
                   </button>
                 </div>
               </div>
@@ -329,7 +370,7 @@ export const InsurancePlanDetailModal: React.FC<InsurancePlanDetailModalProps> =
                   <button
                     type="button"
                     onClick={() => setShowEnquiryForm(false)}
-                    className="min-h-[42px] px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700"
+                    className="min-h-[42px] px-4 py-2 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -337,17 +378,17 @@ export const InsurancePlanDetailModal: React.FC<InsurancePlanDetailModalProps> =
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="min-h-[42px] px-6 py-2 rounded-lg bg-[#0A192F] hover:bg-[#112240] text-[#E2C98D] text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50"
+                    className="min-h-[42px] px-6 py-2 rounded-lg bg-[#0A192F] hover:bg-[#112240] text-[#E2C98D] text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                   >
                     {submitting ? (
                       <>
                         <div className="w-3.5 h-3.5 border-2 border-[#E2C98D]/40 border-t-[#E2C98D] rounded-full animate-spin" />
-                        <span>Submitting...</span>
+                        <span>Preparing WhatsApp...</span>
                       </>
                     ) : (
                       <>
-                        <Send className="w-3.5 h-3.5 text-[#C5A059]" />
-                        <span>Submit Enquiry</span>
+                        <MessageSquare className="w-3.5 h-3.5 text-[#25D366]" />
+                        <span>Enquire on WhatsApp</span>
                       </>
                     )}
                   </button>

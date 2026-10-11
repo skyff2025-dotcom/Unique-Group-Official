@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { CompanyCardSkeleton, PlanCardSkeleton } from '../components/common/SkeletonLoader';
 import { useSiteSettings } from '../context/SiteSettingsContext';
+import { buildWhatsAppUrl, WHATSAPP_CONFIG } from '../lib/whatsapp';
 
 const CATEGORY_TABS = [
   { id: 'all', label: 'All', icon: Sparkles },
@@ -125,13 +126,13 @@ export const InsurancePage: React.FC = () => {
 
               <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <a
-                  href={`https://wa.me/${settings.whatsapp}?text=Hello%20Unique%20Group,%20I%20would%20like%20guidance%20on%20insurance%20solutions.`}
+                  href={buildWhatsAppUrl(`Hello ${WHATSAPP_CONFIG.businessName}, I would like guidance on insurance solutions.`)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="min-h-[46px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded bg-[#C5A059] hover:bg-[#D4B46C] text-[#050D1A] font-bold text-xs uppercase tracking-wider transition-colors shadow-xs"
                 >
                   <MessageSquare className="w-4 h-4" />
-                  <span>Speak with Our Team</span>
+                  <span>Speak with Our Team on WhatsApp</span>
                 </a>
 
                 <a

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Send, CheckCircle2, AlertCircle, Phone, Building2, ShieldCheck, Landmark, MessageSquare } from 'lucide-react';
+import { Send, CheckCircle2, AlertCircle, Phone, Building2, ShieldCheck, Landmark, MessageSquare, ExternalLink } from 'lucide-react';
 import { submitEnquiry } from '../../services/enquiries';
+import { buildWhatsAppUrl, buildWhatsAppEnquiryMessage, openWhatsApp, WHATSAPP_CONFIG } from '../../lib/whatsapp';
 
 export type ServiceTypeOption = 'Real Estate' | 'Insurance' | 'Finance' | 'General Enquiry';
 
@@ -28,7 +29,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
   insurancePlanTitle,
   financeServiceId,
   financeServiceTitle,
-  submitButtonText = 'Send Enquiry / Request Callback',
+  submitButtonText = 'Enquire on WhatsApp',
   onSuccess,
   className = '',
   title,
@@ -52,19 +53,23 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [whatsAppOpened, setWhatsAppOpened] = useState(false);
+  const [lastWhatsAppUrl, setLastWhatsAppUrl] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   // Identify linked context
   const isContextLocked = Boolean(propertyId || insurancePlanId || financeServiceId);
 
+  // Computed interested item name
+  const interestedInLabel = propertyTitle || insurancePlanTitle || financeServiceTitle;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
-    setSuccessMessage('');
 
     // Validation: Name is required
-    if (!name.trim()) {
+    const cleanName = name.trim();
+    if (!cleanName) {
       setErrorMessage('Please enter your full name.');
       return;
     }
@@ -78,51 +83,50 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
 
     setIsSubmitting(true);
 
-    try {
-      const activeServiceType: ServiceTypeOption = propertyId
-        ? 'Real Estate'
-        : insurancePlanId
-        ? 'Insurance'
-        : financeServiceId
-        ? 'Finance'
-        : serviceType;
+    const activeServiceType: ServiceTypeOption = propertyId
+      ? 'Real Estate'
+      : insurancePlanId
+      ? 'Insurance'
+      : financeServiceId
+      ? 'Finance'
+      : serviceType;
 
-      const res = await submitEnquiry({
-        name: name.trim(),
+    const whatsappPayload = {
+      name: cleanName,
+      phone: phone.trim(),
+      email: email.trim() || undefined,
+      enquiryType: activeServiceType,
+      interestedIn: interestedInLabel,
+      message: message.trim() || undefined,
+    };
+
+    const targetUrl = buildWhatsAppUrl(whatsappPayload);
+    setLastWhatsAppUrl(targetUrl);
+
+    // Save to Supabase in parallel/background so database records & admin dashboard are updated
+    try {
+      await submitEnquiry({
+        name: cleanName,
         phone: phone.trim(),
         email: email.trim() || undefined,
         service_type: activeServiceType,
+        interestedIn: interestedInLabel,
         property_id: propertyId,
         insurance_plan_id: insurancePlanId,
         finance_service_id: financeServiceId,
         message: message.trim() || undefined,
       });
+    } catch (saveErr) {
+      console.warn('Supabase enquiry archive notice (continuing to WhatsApp):', saveErr);
+    }
 
-      if (res.success) {
-        setSuccessMessage('Thank you. Your enquiry has been received. Our team will contact you shortly.');
-        // Reset form
-        setName('');
-        setPhone('');
-        setEmail('');
-        setMessage('');
-        if (!isContextLocked && !initialServiceType) {
-          setServiceType('General Enquiry');
-        }
-        if (onSuccess) {
-          onSuccess();
-        }
-      } else {
-        setErrorMessage(res.error || 'Failed to submit enquiry. Please try again.');
-      }
-    } catch {
-      // Graceful fallback for visitors
-      setSuccessMessage('Thank you. Your enquiry has been received. Our team will contact you shortly.');
-      setName('');
-      setPhone('');
-      setEmail('');
-      setMessage('');
-    } finally {
-      setIsSubmitting(false);
+    // Open WhatsApp directly
+    openWhatsApp(whatsappPayload);
+    setWhatsAppOpened(true);
+    setIsSubmitting(false);
+
+    if (onSuccess) {
+      onSuccess();
     }
   };
 
@@ -137,7 +141,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
             {title || 'Send an Enquiry'}
           </h3>
           <p className="text-xs sm:text-sm text-slate-600 mt-1">
-            {subtitle || 'Receive verified guidance from Gaurav Shah and the Unique Group advisory desk.'}
+            {subtitle || 'Receive verified guidance from Gaurav Shah on WhatsApp.'}
           </p>
         </div>
       )}
@@ -179,13 +183,33 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
         </div>
       )}
 
-      {/* Success Banner */}
-      {successMessage && (
-        <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-start gap-3 animate-fadeIn">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-          <div className="text-xs sm:text-sm font-medium leading-relaxed">
-            {successMessage}
+      {/* WhatsApp Launch Banner */}
+      {whatsAppOpened && (
+        <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-2 animate-fadeIn">
+          <div className="flex items-start gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs sm:text-sm font-semibold text-emerald-950">
+                WhatsApp is opening with your enquiry.
+              </p>
+              <p className="text-xs text-emerald-800 mt-0.5">
+                Please tap <strong>Send</strong> in WhatsApp to deliver your message directly to {WHATSAPP_CONFIG.recipientName} ({WHATSAPP_CONFIG.displayPhone}).
+              </p>
+            </div>
           </div>
+          {lastWhatsAppUrl && (
+            <div className="pt-2 pl-7.5">
+              <a
+                href={lastWhatsAppUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 underline underline-offset-2"
+              >
+                <span>Tap here if WhatsApp did not open automatically</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          )}
         </div>
       )}
 
@@ -233,7 +257,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
             />
           </div>
           <span className="text-[11px] text-slate-500 mt-1 block">
-            Used by Gaurav Shah to call or share details on WhatsApp.
+            Used by {WHATSAPP_CONFIG.recipientName} to contact you.
           </span>
         </div>
 
@@ -291,10 +315,10 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
           className="w-full min-h-[48px] py-3 px-6 rounded-lg bg-[#0A192F] hover:bg-[#112240] text-[#E2C98D] text-xs sm:text-sm font-bold uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 shadow-sm disabled:opacity-75 cursor-pointer mt-2"
         >
           {isSubmitting ? (
-            <span>Submitting...</span>
+            <span>Preparing WhatsApp...</span>
           ) : (
             <>
-              <Send className="w-4 h-4" />
+              <MessageSquare className="w-4 h-4 text-[#25D366]" />
               <span>{submitButtonText}</span>
             </>
           )}
@@ -302,7 +326,7 @@ export const EnquiryForm: React.FC<EnquiryFormProps> = ({
 
         {/* Privacy Note */}
         <p className="text-[11px] text-slate-500 text-center pt-1 leading-normal">
-          🔒 Your contact details are strictly confidential and never shared with external telemarketers.
+          💬 Submitting prepares a direct WhatsApp message to {WHATSAPP_CONFIG.displayPhone}.
         </p>
       </form>
     </div>

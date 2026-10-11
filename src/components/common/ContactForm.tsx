@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Phone, Mail, MapPin, CheckCircle, Send, MessageSquare } from 'lucide-react';
+import { Phone, Mail, MapPin, CheckCircle, Send, MessageSquare, ExternalLink } from 'lucide-react';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
 import { DivisionType, EnquirySubmission } from '../../types';
 import { submitEnquiry } from '../../services/enquiries';
+import { buildWhatsAppUrl, openWhatsApp, WHATSAPP_CONFIG } from '../../lib/whatsapp';
 
 interface ContactFormProps {
   initialDivision?: DivisionType;
@@ -18,8 +19,6 @@ export const ContactForm: React.FC<ContactFormProps> = ({
   propertyId,
 }) => {
   const settings = useSiteSettings();
-  const cleanWhatsApp = settings.whatsapp ? settings.whatsapp.replace(/\D/g, '') : '';
-  const waPrefilled = encodeURIComponent('Hello UNIQUE GROUP, I would like to discuss an enquiry.');
   const [formData, setFormData] = useState<EnquirySubmission>({
     fullName: '',
     phoneNumber: '',
@@ -32,7 +31,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [successNotice, setSuccessNotice] = useState('');
+  const [lastWhatsAppUrl, setLastWhatsAppUrl] = useState('');
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -41,9 +40,29 @@ export const ContactForm: React.FC<ContactFormProps> = ({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const mapDivisionToCategory = (div: DivisionType): string => {
+    switch (div) {
+      case 'real_estate':
+        return 'Real Estate';
+      case 'insurance':
+        return 'Insurance';
+      case 'finance':
+        return 'Finance';
+      default:
+        return 'General Enquiry';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+
+    // Name validation
+    const cleanName = formData.fullName.trim();
+    if (!cleanName) {
+      setErrorMessage('Please enter your full name.');
+      return;
+    }
 
     // Phone validation
     const cleanPhone = formData.phoneNumber.replace(/\D/g, '');
@@ -54,25 +73,35 @@ export const ContactForm: React.FC<ContactFormProps> = ({
 
     setIsSubmitting(true);
 
-    try {
-      const result = await submitEnquiry({
-        ...formData,
-        propertyId: propertyId || formData.propertyId,
-      });
+    const whatsappPayload = {
+      name: cleanName,
+      phone: formData.phoneNumber.trim(),
+      email: formData.emailAddress?.trim() || undefined,
+      enquiryType: mapDivisionToCategory(formData.division),
+      message: formData.message.trim() || undefined,
+    };
 
-      if (result.success) {
-        setSuccessNotice(result.message);
-        setSubmitted(true);
-      } else {
-        setErrorMessage(result.error || 'Failed to submit enquiry. Please try again.');
-      }
-    } catch (err: any) {
-      // Graceful fallback
-      setSubmitted(true);
-      setSuccessNotice('Your enquiry has been received. Gaurav Shah will contact you shortly.');
-    } finally {
-      setIsSubmitting(false);
+    const targetUrl = buildWhatsAppUrl(whatsappPayload);
+    setLastWhatsAppUrl(targetUrl);
+
+    // Save to Supabase in background
+    try {
+      await submitEnquiry({
+        name: cleanName,
+        phone: formData.phoneNumber.trim(),
+        email: formData.emailAddress?.trim() || undefined,
+        service_type: mapDivisionToCategory(formData.division),
+        message: formData.message.trim() || undefined,
+        property_id: propertyId || formData.propertyId,
+      });
+    } catch (saveErr) {
+      console.warn('Supabase enquiry archive notice (continuing to WhatsApp):', saveErr);
     }
+
+    // Launch WhatsApp directly
+    openWhatsApp(whatsappPayload);
+    setSubmitted(true);
+    setIsSubmitting(false);
   };
 
   return (
@@ -156,19 +185,17 @@ export const ContactForm: React.FC<ContactFormProps> = ({
                   </div>
                 </div>
 
-                {cleanWhatsApp && (
-                  <div className="pt-2">
-                    <a
-                      href={`https://wa.me/${cleanWhatsApp}?text=${waPrefilled}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full min-h-[44px] flex items-center justify-center gap-2 px-4 py-2.5 rounded bg-[#C5A059] hover:bg-[#D4B46C] text-[#050D1A] font-bold text-xs uppercase tracking-wider transition-colors shadow-sm"
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                      <span>Chat on WhatsApp</span>
-                    </a>
-                  </div>
-                )}
+                <div className="pt-2">
+                  <a
+                    href={buildWhatsAppUrl('Hello UNIQUE GROUP, I would like to consult with Gaurav Shah.')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full min-h-[44px] flex items-center justify-center gap-2 px-4 py-2.5 rounded bg-[#C5A059] hover:bg-[#D4B46C] text-[#050D1A] font-bold text-xs uppercase tracking-wider transition-colors shadow-sm"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Chat on WhatsApp</span>
+                  </a>
+                </div>
               </div>
             </div>
           )}
@@ -177,42 +204,43 @@ export const ContactForm: React.FC<ContactFormProps> = ({
           <div className={`${showContactCard ? 'lg:col-span-7' : 'max-w-2xl mx-auto w-full'}`}>
             <div className="bg-white p-8 sm:p-10 rounded-2xl border border-[#E8E4D8] shadow-sm">
               {submitted ? (
-                <div className="py-12 px-4 text-center space-y-4">
+                <div className="py-8 px-4 text-center space-y-4">
                   <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
                     <CheckCircle className="w-8 h-8" />
                   </div>
                   <h3 className="font-serif text-3xl font-bold text-[#0A192F]">
-                    Thank You, {formData.fullName}.
+                    WhatsApp Is Opening
                   </h3>
-                  <p className="text-slate-600 text-sm max-w-md mx-auto leading-relaxed">
-                    {successNotice || (
-                      <>
-                        Your enquiry regarding{' '}
-                        <span className="font-semibold capitalize text-[#0A192F]">
-                          {formData.division.replace('_', ' ')}
-                        </span>{' '}
-                        has been received. Gaurav Shah will personally get in touch with you at{' '}
-                        <span className="font-semibold text-[#0A192F]">{formData.phoneNumber}</span>.
-                      </>
-                    )}
-                  </p>
-                  <div className="pt-4">
+                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-sm max-w-md mx-auto text-left space-y-2">
+                    <p className="font-medium">
+                      WhatsApp is opening with your enquiry. Please tap <strong>Send</strong> in WhatsApp to deliver your message.
+                    </p>
+                    <p className="text-xs text-emerald-800">
+                      Destination: {WHATSAPP_CONFIG.recipientName} ({WHATSAPP_CONFIG.displayPhone})
+                    </p>
+                  </div>
+                  {lastWhatsAppUrl && (
+                    <div className="pt-2">
+                      <a
+                        href={lastWhatsAppUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-xs"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        <span>Tap to Open WhatsApp Now</span>
+                      </a>
+                    </div>
+                  )}
+                  <div className="pt-4 border-t border-slate-100 mt-6">
                     <button
                       type="button"
                       onClick={() => {
                         setSubmitted(false);
-                        setFormData({
-                          fullName: '',
-                          phoneNumber: '',
-                          emailAddress: '',
-                          division: initialDivision,
-                          message: '',
-                          propertyId,
-                        });
                       }}
                       className="text-xs font-semibold text-[#8C6E2E] hover:text-[#0A192F] uppercase tracking-wider underline underline-offset-4"
                     >
-                      Send Another Enquiry
+                      Modify Details / Send Another
                     </button>
                   </div>
                 </div>
@@ -223,7 +251,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({
                       Submit Your Enquiry
                     </h3>
                     <p className="text-xs text-slate-500 mt-1">
-                      Fill out the form below and we will respond promptly with tailored guidance.
+                      Fill out the form below to initiate an instant WhatsApp consultation.
                     </p>
                   </div>
 
@@ -253,7 +281,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({
                     {/* Phone Number */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Phone Number *
+                        Mobile Phone Number *
                       </label>
                       <input
                         type="tel"
@@ -261,7 +289,7 @@ export const ContactForm: React.FC<ContactFormProps> = ({
                         required
                         value={formData.phoneNumber}
                         onChange={handleChange}
-                        placeholder="10-digit mobile number"
+                        placeholder="e.g. 9909015956"
                         className="w-full min-h-[46px] px-4 py-2.5 rounded-lg border border-[#D5CEBF] bg-[#FAF9F5] text-sm text-[#0A192F] placeholder-slate-400 focus:outline-none focus:border-[#C5A059] focus:bg-white transition-colors"
                       />
                     </div>
@@ -271,22 +299,22 @@ export const ContactForm: React.FC<ContactFormProps> = ({
                     {/* Email */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Email Address (Optional)
+                        Email Address <span className="text-slate-400 font-normal">(Optional)</span>
                       </label>
                       <input
                         type="email"
                         name="emailAddress"
                         value={formData.emailAddress}
                         onChange={handleChange}
-                        placeholder="name@example.com"
+                        placeholder="e.g. ramesh@example.com"
                         className="w-full min-h-[46px] px-4 py-2.5 rounded-lg border border-[#D5CEBF] bg-[#FAF9F5] text-sm text-[#0A192F] placeholder-slate-400 focus:outline-none focus:border-[#C5A059] focus:bg-white transition-colors"
                       />
                     </div>
 
-                    {/* Interested In */}
+                    {/* Division */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Interested In *
+                        Enquiry Type
                       </label>
                       <select
                         name="division"
@@ -294,8 +322,8 @@ export const ContactForm: React.FC<ContactFormProps> = ({
                         onChange={handleChange}
                         className="w-full min-h-[46px] px-4 py-2.5 rounded-lg border border-[#D5CEBF] bg-[#FAF9F5] text-sm text-[#0A192F] focus:outline-none focus:border-[#C5A059] focus:bg-white transition-colors"
                       >
-                        <option value="real_estate">Real Estate &amp; Land</option>
-                        <option value="insurance">Insurance Plans</option>
+                        <option value="real_estate">Real Estate &amp; Properties</option>
+                        <option value="insurance">Insurance Planning</option>
                         <option value="finance">Finance &amp; Loans</option>
                         <option value="general">General Enquiry</option>
                       </select>
@@ -322,21 +350,21 @@ export const ContactForm: React.FC<ContactFormProps> = ({
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full min-h-[50px] inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-lg bg-[#0A192F] hover:bg-[#112240] text-[#E2C98D] text-xs font-bold uppercase tracking-wider transition-all duration-200 shadow-md disabled:opacity-70 active:scale-[0.99]"
+                      className="w-full min-h-[50px] inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-lg bg-[#0A192F] hover:bg-[#112240] text-[#E2C98D] text-xs font-bold uppercase tracking-wider transition-all duration-200 shadow-md disabled:opacity-70 active:scale-[0.99] cursor-pointer"
                     >
                       {isSubmitting ? (
-                        <span>Submitting to Database...</span>
+                        <span>Preparing WhatsApp...</span>
                       ) : (
                         <>
-                          <span>Submit Enquiry</span>
-                          <Send className="w-4 h-4" />
+                          <MessageSquare className="w-4 h-4 text-[#25D366]" />
+                          <span>Submit &amp; Open WhatsApp</span>
                         </>
                       )}
                     </button>
                   </div>
 
                   <p className="text-[11px] text-slate-500 text-center">
-                    Your information is held in strict confidence. No spam or unsolicited sharing.
+                    💬 Submitting opens WhatsApp to directly chat with {WHATSAPP_CONFIG.recipientName} ({WHATSAPP_CONFIG.displayPhone}).
                   </p>
                 </form>
               )}
@@ -347,3 +375,4 @@ export const ContactForm: React.FC<ContactFormProps> = ({
     </section>
   );
 };
+

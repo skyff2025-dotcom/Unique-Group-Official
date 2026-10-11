@@ -22,6 +22,7 @@ import { getInsurancePlanBySlug } from '../services/insurance';
 import { InsurancePlan, InsuranceCompany } from '../types';
 import { EnquiryModal } from '../components/common/EnquiryModal';
 import { useSiteSettings } from '../context/SiteSettingsContext';
+import { buildWhatsAppUrl, WHATSAPP_CONFIG } from '../lib/whatsapp';
 
 export const InsurancePlanDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -231,15 +232,25 @@ export const InsurancePlanDetailPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleOpenEnquiry}
-                      className="min-h-[46px] px-6 py-3 rounded-lg bg-[#C5A059] hover:bg-[#D4B46C] text-[#050D1A] font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-2 shadow-sm"
+                      className="min-h-[46px] px-5 py-3 rounded-lg bg-[#C5A059] hover:bg-[#D4B46C] text-[#050D1A] font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-2 shadow-sm"
                     >
                       <MessageSquare className="w-4 h-4" />
-                      <span>Get Assistance</span>
+                      <span>Enquire on WhatsApp</span>
                     </button>
 
                     <a
+                      href={buildWhatsAppUrl(`Hello ${WHATSAPP_CONFIG.businessName}, I would like to consult regarding the ${plan.title} policy from ${companyDisplayName}.`)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-h-[46px] px-4 py-3 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Direct WhatsApp</span>
+                    </a>
+
+                    <a
                       href={`tel:${effectivePhone}`}
-                      className="min-h-[46px] px-5 py-3 rounded-lg border border-white/20 hover:bg-white/10 text-white font-semibold text-xs tracking-wider transition-colors inline-flex items-center justify-center gap-2"
+                      className="min-h-[46px] px-4 py-3 rounded-lg border border-white/20 hover:bg-white/10 text-white font-semibold text-xs tracking-wider transition-colors inline-flex items-center justify-center gap-2"
                     >
                       <Phone className="w-4 h-4 text-[#C5A059]" />
                       <span>Call {effectivePhone}</span>
@@ -398,7 +409,7 @@ export const InsurancePlanDetailPage: React.FC = () => {
           insurancePlanTitle={`${plan.title} (${companyDisplayName})`}
           title={`Enquire About ${plan.title}`}
           subtitle={`Provider: ${companyDisplayName}. Receive policy comparison and direct claim support.`}
-          submitButtonText="Send Enquiry / Request Callback"
+          submitButtonText="Enquire on WhatsApp"
         />
       )}
     </div>

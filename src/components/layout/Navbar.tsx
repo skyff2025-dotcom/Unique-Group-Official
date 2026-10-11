@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Phone, MessageSquare, ArrowUpRight } from 'lucide-react';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
+import { buildWhatsAppUrl, WHATSAPP_CONFIG } from '../../lib/whatsapp';
 
 interface NavbarProps {
   forceSolid?: boolean;
@@ -248,25 +249,15 @@ export const Navbar: React.FC<NavbarProps> = ({ forceSolid = false }) => {
                   <Phone className="w-4 h-4 text-[#C5A059]" />
                   <span>Call Now</span>
                 </a>
-                {settings.whatsapp ? (
-                  <a
-                    href={`https://wa.me/${settings.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent('Hello UNIQUE GROUP, I would like to enquire about your services.')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="min-h-[44px] flex items-center justify-center gap-2 px-3 py-2.5 rounded bg-[#C5A059] hover:bg-[#D4B46C] text-[#050D1A] text-xs font-semibold uppercase tracking-wider transition-colors"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    <span>WhatsApp</span>
-                  </a>
-                ) : (
-                  <Link
-                    to="/contact"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="min-h-[44px] flex items-center justify-center gap-2 px-3 py-2.5 rounded bg-[#C5A059] hover:bg-[#D4B46C] text-[#050D1A] text-xs font-semibold uppercase tracking-wider transition-colors"
-                  >
-                    <span>Contact Us</span>
-                  </Link>
-                )}
+                <a
+                  href={buildWhatsAppUrl(`Hello ${WHATSAPP_CONFIG.businessName}, I would like to enquire about your services.`)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-h-[44px] flex items-center justify-center gap-2 px-3 py-2.5 rounded bg-[#C5A059] hover:bg-[#D4B46C] text-[#050D1A] text-xs font-semibold uppercase tracking-wider transition-colors"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>WhatsApp</span>
+                </a>
               </div>
             </div>
           </div>

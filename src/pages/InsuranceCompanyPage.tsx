@@ -17,6 +17,7 @@ import {
 import { PlanCardSkeleton } from '../components/common/SkeletonLoader';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { InsurancePlanDetailModal } from '../components/insurance/InsurancePlanDetailModal';
+import { buildWhatsAppUrl, WHATSAPP_CONFIG } from '../lib/whatsapp';
 
 export const InsuranceCompanyPage: React.FC = () => {
   const settings = useSiteSettings();
@@ -290,9 +291,7 @@ export const InsuranceCompanyPage: React.FC = () => {
                   </p>
                   <div className="pt-2">
                     <a
-                      href={`https://wa.me/${settings.whatsapp}?text=Hello%20Unique%20Group,%20I%20am%20inquiring%20about%20plans%20from%20${encodeURIComponent(
-                        company.name
-                      )}.`}
+                      href={buildWhatsAppUrl(`Hello ${WHATSAPP_CONFIG.businessName}, I am inquiring about insurance plans underwritten by ${company.name}.`)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-emerald-700"

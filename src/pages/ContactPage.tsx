@@ -3,11 +3,11 @@ import { SectionHeading } from '../components/common/SectionHeading';
 import { ContactForm } from '../components/common/ContactForm';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { MapPin, Phone, Mail, Clock, MessageSquare, ExternalLink } from 'lucide-react';
+import { buildWhatsAppUrl, WHATSAPP_CONFIG } from '../lib/whatsapp';
 
 export const ContactPage: React.FC = () => {
   const settings = useSiteSettings();
-  const cleanWhatsApp = settings.whatsapp ? settings.whatsapp.replace(/\D/g, '') : '';
-  const waPrefilled = encodeURIComponent('Hello UNIQUE GROUP, I would like to enquire about your services.');
+  const whatsappUrl = buildWhatsAppUrl(`Hello ${WHATSAPP_CONFIG.businessName}, I would like to enquire about your services.`);
 
   return (
     <div className="pt-24 pb-20 space-y-16">
@@ -78,19 +78,17 @@ export const ContactPage: React.FC = () => {
                 </>
               )}
             </p>
-            {cleanWhatsApp && (
-              <div className="pt-2">
-                <a
-                  href={`https://wa.me/${cleanWhatsApp}?text=${waPrefilled}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#8C6E2E] hover:text-[#0A192F] uppercase tracking-wider"
-                >
-                  <span>Message on WhatsApp</span>
-                  <MessageSquare className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            )}
+            <div className="pt-2">
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#8C6E2E] hover:text-[#0A192F] uppercase tracking-wider"
+              >
+                <span>Message on WhatsApp</span>
+                <MessageSquare className="w-3.5 h-3.5" />
+              </a>
+            </div>
           </div>
 
           <div className="space-y-3">

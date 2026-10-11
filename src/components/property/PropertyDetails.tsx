@@ -5,6 +5,7 @@ import { Property } from '../../types';
 import { VisualAsset } from '../common/VisualAsset';
 import { EnquiryForm } from '../common/EnquiryForm';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
+import { buildWhatsAppUrl, WHATSAPP_CONFIG } from '../../lib/whatsapp';
 
 interface PropertyDetailsProps {
   property: Property;
@@ -32,9 +33,8 @@ export const PropertyDetails: React.FC<PropertyDetailsProps> = ({ property }) =>
   );
 
   const contactPhone = property.contactPhone || settings.phone;
-  const cleanWhatsApp = settings.whatsapp ? settings.whatsapp.replace(/\D/g, '') : '';
-  const whatsappMessage = encodeURIComponent(
-    `Hello ${settings.founder}, I am interested in ${property.title} in ${property.location} (${property.formattedPrice}). Please share more details.`
+  const whatsappUrl = buildWhatsAppUrl(
+    `Hello ${WHATSAPP_CONFIG.recipientName}, I am interested in ${property.title} in ${property.location} (${property.formattedPrice}). Please share more details.`
   );
 
   return (
@@ -288,7 +288,7 @@ export const PropertyDetails: React.FC<PropertyDetailsProps> = ({ property }) =>
               </p>
             </div>
 
-            <div className={cleanWhatsApp ? "grid grid-cols-2 gap-2.5" : "flex"}>
+            <div className="grid grid-cols-2 gap-2.5">
               <a
                 href={`tel:${contactPhone}`}
                 className="w-full min-h-[44px] flex items-center justify-center gap-2 px-3 py-2.5 rounded bg-[#0A192F] hover:bg-[#112240] text-white text-xs font-semibold uppercase tracking-wider transition-colors shadow-sm"
@@ -296,17 +296,15 @@ export const PropertyDetails: React.FC<PropertyDetailsProps> = ({ property }) =>
                 <Phone className="w-3.5 h-3.5 text-[#C5A059]" />
                 <span>Call Now</span>
               </a>
-              {cleanWhatsApp && (
-                <a
-                  href={`https://wa.me/${cleanWhatsApp}?text=${whatsappMessage}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full min-h-[44px] flex items-center justify-center gap-2 px-3 py-2.5 rounded bg-[#C5A059] hover:bg-[#D4B46C] text-[#050D1A] text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>WhatsApp</span>
-                </a>
-              )}
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full min-h-[44px] flex items-center justify-center gap-2 px-3 py-2.5 rounded bg-[#C5A059] hover:bg-[#D4B46C] text-[#050D1A] text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>WhatsApp</span>
+              </a>
             </div>
 
             <hr className="border-[#E8E4D8]" />
@@ -318,7 +316,7 @@ export const PropertyDetails: React.FC<PropertyDetailsProps> = ({ property }) =>
               propertyTitle={property.title}
               title="Request Site Inspection"
               subtitle={`Enquire directly for ${property.title}.`}
-              submitButtonText="Send Enquiry / Request Callback"
+              submitButtonText="Enquire on WhatsApp"
               className="border-0 shadow-none p-0 bg-transparent"
               hideHeader={false}
             />
