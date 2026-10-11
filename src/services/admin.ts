@@ -250,9 +250,72 @@ export async function getAdminPropertyById(id: string): Promise<AdminPropertyWit
   }
 }
 
-export async function createProperty(payload: PropertyInsert): Promise<{ data: PropertyRow | null; error?: string }> {
+export function sanitizePropertyPayload(raw: Partial<PropertyInsert>): PropertyInsert {
+  const cleanStr = (val?: string | null) => {
+    if (val === undefined || val === null) return null;
+    const trimmed = String(val).trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  const cleanNum = (val?: number | string | null): number | null => {
+    if (val === undefined || val === null || val === '') return null;
+    const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/,/g, ''));
+    return isNaN(num) ? null : num;
+  };
+
+  const cleanInt = (val?: number | string | null): number | null => {
+    if (val === undefined || val === null || val === '') return null;
+    const num = typeof val === 'number' ? Math.floor(val) : parseInt(String(val).replace(/,/g, ''), 10);
+    return isNaN(num) ? null : num;
+  };
+
+  return {
+    title: (raw.title || '').trim(),
+    slug: (raw.slug || '').trim(),
+    property_type: cleanStr(raw.property_type) || 'residential',
+    listing_type: cleanStr(raw.listing_type) || 'For Sale',
+    location: (raw.location || '').trim(),
+    city: cleanStr(raw.city) || 'Rajpipla',
+    district: cleanStr(raw.district) || 'Narmada',
+    area: (raw.area || '').trim(),
+    area_unit: cleanStr(raw.area_unit) || 'sq.ft',
+    price: cleanNum(raw.price),
+    price_display: cleanStr(raw.price_display),
+    short_description: cleanStr(raw.short_description),
+    description: (raw.description || '').trim(),
+    status: cleanStr(raw.status) || 'Available',
+    featured: Boolean(raw.featured),
+    bedrooms: cleanInt(raw.bedrooms),
+    bathrooms: cleanInt(raw.bathrooms),
+    google_maps_url: cleanStr(raw.google_maps_url),
+    latitude: cleanNum(raw.latitude),
+    longitude: cleanNum(raw.longitude),
+    contact_phone: cleanStr(raw.contact_phone) || '9909015956',
+  };
+}
+
+export async function createProperty(rawPayload: PropertyInsert): Promise<{ data: PropertyRow | null; error?: string }> {
   if (!isSupabaseConfigured()) {
     return { data: null, error: 'Database is not configured.' };
+  }
+
+  const payload = sanitizePropertyPayload(rawPayload);
+
+  // Validate required client-side fields
+  if (!payload.title) {
+    return { data: null, error: 'Property title is required.' };
+  }
+  if (!payload.slug) {
+    return { data: null, error: 'URL slug is required.' };
+  }
+  if (!payload.location) {
+    return { data: null, error: 'Location is required.' };
+  }
+  if (!payload.area) {
+    return { data: null, error: 'Area size is required.' };
+  }
+  if (!payload.description) {
+    return { data: null, error: 'Property description is required.' };
   }
 
   try {
@@ -263,44 +326,143 @@ export async function createProperty(payload: PropertyInsert): Promise<{ data: P
       .single();
 
     if (error) {
+      console.error('Supabase property insert error:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+
       if (error.code === '23505') {
-        return { data: null, error: 'A property with this URL slug already exists. Please choose a unique slug.' };
+        return { data: null, error: 'A property with this URL slug already exists. Please customize the slug.' };
       }
-      return { data: null, error: 'Failed to create property record. Please check the provided information.' };
+      if (error.code === '42501') {
+        return {
+          data: null,
+          error: 'Row-Level Security (RLS) permission denied: Your authenticated user account is not recognized as an active administrator in admin_profiles. Please check that public.is_admin() returns true for your user.',
+        };
+      }
+      if (error.code === '42P17') {
+        return {
+          data: null,
+          error: 'Database policy recursion detected on admin_profiles. Please update the policy on admin_profiles in Supabase SQL editor.',
+        };
+      }
+      if (error.code === '23502') {
+        return {
+          data: null,
+          error: `Required database column missing: ${error.details || error.message}.`,
+        };
+      }
+      if (error.code === '23514') {
+        return {
+          data: null,
+          error: `Field value failed database validation constraint: ${error.message}.`,
+        };
+      }
+
+      return {
+        data: null,
+        error: error.message ? `Failed to create property: ${error.message}` : 'Failed to create property record. Please check the provided information.',
+      };
     }
 
     return { data };
-  } catch (err) {
-    return { data: null, error: 'An unexpected error occurred while creating the property.' };
+  } catch (err: any) {
+    console.error('Property creation exception:', err);
+    return { data: null, error: err?.message || 'An unexpected error occurred while creating the property.' };
   }
 }
 
 export async function updateProperty(
   id: string,
-  payload: PropertyUpdate
+  rawPayload: PropertyUpdate
 ): Promise<{ data: PropertyRow | null; error?: string }> {
   if (!isSupabaseConfigured()) {
     return { data: null, error: 'Database is not configured.' };
   }
 
+  const cleanStr = (val?: string | null) => {
+    if (val === undefined) return undefined;
+    if (val === null) return null;
+    const trimmed = String(val).trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  const cleanNum = (val?: number | string | null): number | null | undefined => {
+    if (val === undefined) return undefined;
+    if (val === null || val === '') return null;
+    const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/,/g, ''));
+    return isNaN(num) ? null : num;
+  };
+
+  const cleanInt = (val?: number | string | null): number | null | undefined => {
+    if (val === undefined) return undefined;
+    if (val === null || val === '') return null;
+    const num = typeof val === 'number' ? Math.floor(val) : parseInt(String(val).replace(/,/g, ''), 10);
+    return isNaN(num) ? null : num;
+  };
+
+  const payload: PropertyUpdate = {
+    ...rawPayload,
+    title: rawPayload.title !== undefined ? (rawPayload.title || '').trim() : undefined,
+    slug: rawPayload.slug !== undefined ? (rawPayload.slug || '').trim() : undefined,
+    property_type: rawPayload.property_type !== undefined ? (cleanStr(rawPayload.property_type) || 'residential') : undefined,
+    listing_type: rawPayload.listing_type !== undefined ? (cleanStr(rawPayload.listing_type) || 'For Sale') : undefined,
+    location: rawPayload.location !== undefined ? (rawPayload.location || '').trim() : undefined,
+    city: rawPayload.city !== undefined ? (cleanStr(rawPayload.city) || 'Rajpipla') : undefined,
+    district: rawPayload.district !== undefined ? (cleanStr(rawPayload.district) || 'Narmada') : undefined,
+    area: rawPayload.area !== undefined ? (rawPayload.area || '').trim() : undefined,
+    area_unit: rawPayload.area_unit !== undefined ? (cleanStr(rawPayload.area_unit) || 'sq.ft') : undefined,
+    price: cleanNum(rawPayload.price),
+    price_display: cleanStr(rawPayload.price_display),
+    short_description: cleanStr(rawPayload.short_description),
+    description: rawPayload.description !== undefined ? (rawPayload.description || '').trim() : undefined,
+    status: rawPayload.status !== undefined ? (cleanStr(rawPayload.status) || 'Available') : undefined,
+    featured: rawPayload.featured !== undefined ? Boolean(rawPayload.featured) : undefined,
+    bedrooms: cleanInt(rawPayload.bedrooms),
+    bathrooms: cleanInt(rawPayload.bathrooms),
+    google_maps_url: cleanStr(rawPayload.google_maps_url),
+    latitude: cleanNum(rawPayload.latitude),
+    longitude: cleanNum(rawPayload.longitude),
+    contact_phone: rawPayload.contact_phone !== undefined ? (cleanStr(rawPayload.contact_phone) || '9909015956') : undefined,
+    updated_at: new Date().toISOString(),
+  };
+
   try {
     const { data, error } = await supabase
       .from('properties')
-      .update({ ...payload, updated_at: new Date().toISOString() })
+      .update(payload)
       .eq('id', id)
       .select()
       .single();
 
     if (error) {
+      console.error('Supabase property update error:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      });
+
       if (error.code === '23505') {
         return { data: null, error: 'A property with this URL slug already exists. Please choose a unique slug.' };
       }
-      return { data: null, error: 'Failed to update property details. Please try again.' };
+      if (error.code === '42501') {
+        return {
+          data: null,
+          error: 'Row-Level Security (RLS) permission denied: Current user is not authorized to update properties.',
+        };
+      }
+      return {
+        data: null,
+        error: error.message ? `Failed to update property: ${error.message}` : 'Failed to update property details. Please try again.',
+      };
     }
 
     return { data };
-  } catch (err) {
-    return { data: null, error: 'An unexpected error occurred while updating the property.' };
+  } catch (err: any) {
+    console.error('Property update exception:', err);
+    return { data: null, error: err?.message || 'An unexpected error occurred while updating the property.' };
   }
 }
 

@@ -221,6 +221,7 @@ CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN
 LANGUAGE sql
 SECURITY DEFINER
+SET search_path = public
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.admin_profiles
@@ -354,13 +355,27 @@ WITH CHECK (public.is_admin());
 CREATE POLICY "Admins view their profile"
 ON public.admin_profiles FOR SELECT
 TO authenticated
-USING (user_id = auth.uid() OR public.is_admin());
+USING (user_id = auth.uid());
 
 CREATE POLICY "Superadmins manage admin profiles"
 ON public.admin_profiles FOR ALL
 TO authenticated
-USING (public.is_admin())
-WITH CHECK (public.is_admin());
+USING (
+  EXISTS (
+    SELECT 1 FROM public.admin_profiles ap
+    WHERE ap.user_id = auth.uid()
+      AND ap.role = 'superadmin'
+      AND ap.active = true
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.admin_profiles ap
+    WHERE ap.user_id = auth.uid()
+      AND ap.role = 'superadmin'
+      AND ap.active = true
+  )
+);
 
 -- ==============================================================================
 -- 5. SUPABASE STORAGE BUCKET: property-images

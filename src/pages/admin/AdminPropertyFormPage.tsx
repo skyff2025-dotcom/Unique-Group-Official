@@ -205,15 +205,23 @@ export const AdminPropertyFormPage: React.FC = () => {
         // Upload any staged files or URLs if present
         if (stagedFiles.length > 0) {
           for (let i = 0; i < stagedFiles.length; i++) {
-            const nextOrder = images.length + i;
-            await uploadPropertyImage(id, stagedFiles[i], nextOrder, stagedFiles[i].name);
+            try {
+              const nextOrder = images.length + i;
+              await uploadPropertyImage(id, stagedFiles[i], nextOrder, stagedFiles[i].name);
+            } catch (imgErr) {
+              console.warn('Image upload error:', imgErr);
+            }
           }
         }
 
         if (stagedUrls.length > 0) {
           for (let i = 0; i < stagedUrls.length; i++) {
-            const nextOrder = images.length + stagedFiles.length + i;
-            await addPropertyImageByUrl(id, stagedUrls[i], nextOrder);
+            try {
+              const nextOrder = images.length + stagedFiles.length + i;
+              await addPropertyImageByUrl(id, stagedUrls[i], nextOrder);
+            } catch (urlErr) {
+              console.warn('Image URL add error:', urlErr);
+            }
           }
         }
 
@@ -233,13 +241,21 @@ export const AdminPropertyFormPage: React.FC = () => {
         // Upload any staged photos to the newly created property
         if (stagedFiles.length > 0) {
           for (let i = 0; i < stagedFiles.length; i++) {
-            await uploadPropertyImage(newPropertyId, stagedFiles[i], i, stagedFiles[i].name);
+            try {
+              await uploadPropertyImage(newPropertyId, stagedFiles[i], i, stagedFiles[i].name);
+            } catch (imgErr) {
+              console.warn('Image upload error on creation:', imgErr);
+            }
           }
         }
 
         if (stagedUrls.length > 0) {
           for (let i = 0; i < stagedUrls.length; i++) {
-            await addPropertyImageByUrl(newPropertyId, stagedUrls[i], stagedFiles.length + i);
+            try {
+              await addPropertyImageByUrl(newPropertyId, stagedUrls[i], stagedFiles.length + i);
+            } catch (urlErr) {
+              console.warn('Image URL add error on creation:', urlErr);
+            }
           }
         }
 
@@ -378,6 +394,7 @@ export const AdminPropertyFormPage: React.FC = () => {
                   <option value="residential">Residential</option>
                   <option value="commercial">Commercial</option>
                   <option value="land">Land</option>
+                  <option value="investment">Investment / Estate</option>
                   <option value="na_land">NA Land</option>
                   <option value="agricultural">Agricultural</option>
                   <option value="other">Other</option>
