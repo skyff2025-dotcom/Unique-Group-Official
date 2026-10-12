@@ -14,26 +14,26 @@ export const PropertiesPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'featured' | 'price_low' | 'price_high'>('featured');
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      setFetchError(null);
+      const data = await getProperties();
+      setProperties(data);
+    } catch (err: any) {
+      if (import.meta.env?.DEV) {
+        console.error('[PropertiesPage] Properties fetch error:', err?.message || err);
+      }
+      setFetchError('Unable to load properties from database. Please check your network connection or try refreshing.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let isMounted = true;
-    async function load() {
-      try {
-        setLoading(true);
-        const data = await getProperties();
-        if (isMounted) {
-          setProperties(data);
-        }
-      } catch (err) {
-        console.warn('Properties fetch notice:', err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    }
     load();
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
   const filterTabs = [
@@ -46,16 +46,35 @@ export const PropertiesPage: React.FC = () => {
 
   const filteredProperties = useMemo(() => {
     return properties.filter((prop) => {
-      const matchesType = selectedType === 'all' || prop.type === selectedType;
+      const propType = (prop.type || '').toLowerCase();
+      const matchesType =
+        selectedType === 'all' ||
+        propType === selectedType ||
+        (selectedType === 'land' && (propType === 'land' || propType === 'na_land' || propType === 'agricultural')) ||
+        (selectedType === 'residential' && propType === 'residential') ||
+        (selectedType === 'commercial' && propType === 'commercial') ||
+        (selectedType === 'investment' && (propType === 'investment' || propType === 'estate'));
+
+      const q = searchQuery.trim().toLowerCase();
       const matchesSearch =
-        prop.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        prop.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        prop.typeLabel.toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        (prop.title || '').toLowerCase().includes(q) ||
+        (prop.location || '').toLowerCase().includes(q) ||
+        (prop.city || '').toLowerCase().includes(q) ||
+        (prop.district || '').toLowerCase().includes(q) ||
+        (prop.typeLabel || '').toLowerCase().includes(q) ||
+        (prop.area || '').toLowerCase().includes(q) ||
+        (prop.formattedPrice || '').toLowerCase().includes(q);
+
       return matchesType && matchesSearch;
     }).sort((a, b) => {
-      if (sortBy === 'price_low') return a.price - b.price;
-      if (sortBy === 'price_high') return b.price - a.price;
-      return a.featured ? -1 : 1;
+      if (sortBy === 'price_low') return (a.price || 0) - (b.price || 0);
+      if (sortBy === 'price_high') return (b.price || 0) - (a.price || 0);
+      // 'featured' first:
+      if (a.featured !== b.featured) {
+        return a.featured ? -1 : 1;
+      }
+      return 0;
     });
   }, [properties, selectedType, searchQuery, sortBy]);
 
@@ -128,25 +147,51 @@ export const PropertiesPage: React.FC = () => {
 
       {/* Property Results */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-6 flex items-center justify-between text-xs text-slate-500 font-medium">
-          <span>
-            Showing <strong className="text-[#0A192F]">{filteredProperties.length}</strong> available properties
-          </span>
-          {selectedType !== 'all' && (
-            <button
-              onClick={() => setSelectedType('all')}
-              className="text-[#8C6E2E] hover:underline"
-            >
-              Reset Filter
-            </button>
-          )}
-        </div>
+        {fetchError ? (
+          <div className="p-8 rounded-xl bg-amber-50 border border-amber-200 text-center space-y-3 my-4">
+            <p className="text-sm font-semibold text-amber-900">
+              {fetchError}
+            </p>
+            <p className="text-xs text-amber-800">
+              Our advisory desk is always reachable directly at {WHATSAPP_CONFIG.displayPhone}.
+            </p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => load()}
+                className="px-5 py-2.5 rounded-lg bg-[#0A192F] text-[#E2C98D] text-xs font-bold uppercase tracking-wider hover:bg-[#112240] transition-colors cursor-pointer"
+              >
+                Retry Loading Properties
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="mb-6 flex items-center justify-between text-xs text-slate-500 font-medium">
+              <span>
+                Showing <strong className="text-[#0A192F]">{filteredProperties.length}</strong> available {filteredProperties.length === 1 ? 'property' : 'properties'}
+              </span>
+              {(selectedType !== 'all' || searchQuery.trim() !== '') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedType('all');
+                    setSearchQuery('');
+                  }}
+                  className="text-[#8C6E2E] hover:underline cursor-pointer"
+                >
+                  Reset Filters
+                </button>
+              )}
+            </div>
 
-        <PropertyGrid
-          properties={filteredProperties}
-          loading={loading}
-          emptyMessage="No properties are currently available. Please contact us for upcoming opportunities."
-        />
+            <PropertyGrid
+              properties={filteredProperties}
+              loading={loading}
+              emptyMessage="No properties match your current search or category filter. Try clearing filters or contact us for off-market options."
+            />
+          </>
+        )}
       </section>
 
       {/* Off-Market Custom Inquiry Banner */}

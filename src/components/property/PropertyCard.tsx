@@ -22,7 +22,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, className 
   };
 
   const propertyUrl = `/properties/${property.slug || property.id}`;
-  const firstImage = property.gallery?.[0]?.url;
+  const firstImage = property.gallery?.[0]?.url || property.primaryImage;
   const isHttpImage = Boolean(firstImage && (firstImage.startsWith('http://') || firstImage.startsWith('https://') || firstImage.startsWith('/')));
 
   return (

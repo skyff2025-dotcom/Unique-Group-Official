@@ -10,18 +10,32 @@ function mapDatabaseProperty(row: PropertyRow, images: PropertyImageRow[] = []):
     residential: 'Residential Villa',
     commercial: 'Commercial Showroom',
     land: 'NA Land Plot',
+    na_land: 'NA Land Plot',
+    agricultural: 'Agricultural Land',
     investment: 'Estate Plot',
+    other: 'Property',
   };
 
   const statusLabelMap: Record<string, string> = {
     Available: 'AVAILABLE',
+    available: 'AVAILABLE',
+    AVAILABLE: 'AVAILABLE',
     'For Sale': 'FOR SALE',
+    'for sale': 'FOR SALE',
+    for_sale: 'FOR SALE',
     Featured: 'FEATURED',
+    featured: 'FEATURED',
+    FEATURED: 'FEATURED',
     Sold: 'SOLD',
+    sold: 'SOLD',
+    SOLD: 'SOLD',
+    Inactive: 'INACTIVE',
+    inactive: 'INACTIVE',
+    INACTIVE: 'INACTIVE',
   };
 
   // Sort images strictly by display_order ASC
-  const sortedImages = [...images].sort((a, b) => a.display_order - b.display_order);
+  const sortedImages = [...images].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
   
   const fallbackImagesByType: Record<string, string> = {
     residential: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80',
@@ -29,6 +43,7 @@ function mapDatabaseProperty(row: PropertyRow, images: PropertyImageRow[] = []):
     land: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80',
     na_land: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80',
     agricultural: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80',
+    investment: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80',
     other: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80',
   };
 
@@ -36,6 +51,29 @@ function mapDatabaseProperty(row: PropertyRow, images: PropertyImageRow[] = []):
     sortedImages[0]?.image_url ||
     fallbackImagesByType[row.property_type] ||
     fallbackImagesByType.residential;
+
+  // Safe area parsing: row.area in PostgreSQL may be number or string
+  const rawAreaStr = row.area != null ? String(row.area).trim() : '';
+  const areaUnitStr = (row.area_unit || 'sq.ft').trim();
+  const formattedArea = rawAreaStr
+    ? rawAreaStr.toLowerCase().includes(areaUnitStr.toLowerCase())
+      ? rawAreaStr
+      : `${rawAreaStr} ${areaUnitStr}`
+    : `— ${areaUnitStr}`;
+
+  // Safe price formatting
+  let formattedPrice = 'Price on Request';
+  if (row.price_display && String(row.price_display).trim()) {
+    const pd = String(row.price_display).trim();
+    formattedPrice = pd.startsWith('₹') ? pd : `₹${pd}`;
+  } else if (row.price && Number(row.price) > 0) {
+    const p = Number(row.price);
+    formattedPrice = p >= 10000000
+      ? `₹${(p / 10000000).toFixed(2)} Cr`
+      : `₹${(p / 100000).toFixed(2)} Lakh`;
+  }
+
+  const cleanStatus = (row.status || 'Available').trim();
 
   return {
     id: row.id,
@@ -48,16 +86,16 @@ function mapDatabaseProperty(row: PropertyRow, images: PropertyImageRow[] = []):
     type: (row.property_type as PropertyType) || 'residential',
     typeLabel: typeMap[row.property_type] || row.property_type,
     listingType: row.listing_type || 'For Sale',
-    status: (row.status?.toLowerCase().replace(' ', '_') as PropertyStatus) || 'available',
-    statusLabel: statusLabelMap[row.status] || (row.status ? row.status.toUpperCase() : 'AVAILABLE'),
+    status: (cleanStatus.toLowerCase().replace(/\s+/g, '_') as PropertyStatus) || 'available',
+    statusLabel: statusLabelMap[cleanStatus] || cleanStatus.toUpperCase(),
     price: row.price || 0,
-    formattedPrice: row.price_display || (row.price ? `₹${(row.price / 10000000).toFixed(2)} Cr` : 'Price on Request'),
-    area: row.area.includes(row.area_unit) ? row.area : `${row.area} ${row.area_unit}`,
-    areaUnit: row.area_unit || 'sq.ft',
+    formattedPrice,
+    area: formattedArea,
+    areaUnit: areaUnitStr,
     bedrooms: row.bedrooms ?? undefined,
     bathrooms: row.bathrooms ?? undefined,
     featured: Boolean(row.featured),
-    shortDescription: row.short_description || row.description.slice(0, 140) + '...',
+    shortDescription: (row.short_description || '').trim() || ((row.description || '').slice(0, 140) + '...'),
     fullDescription: row.description,
     features: [
       'Collector Approved Clear NA / Legal Title',
@@ -71,7 +109,7 @@ function mapDatabaseProperty(row: PropertyRow, images: PropertyImageRow[] = []):
       url: img.image_url,
       alt: img.alt_text || row.title,
     })),
-    address: `${row.location}, ${row.city}, Gujarat`,
+    address: `${row.location}, ${row.city || 'Rajpipla'}, Gujarat`,
     googleMapsUrl: row.google_maps_url || undefined,
     contactPhone: row.contact_phone || '9909015956',
   };
@@ -79,7 +117,7 @@ function mapDatabaseProperty(row: PropertyRow, images: PropertyImageRow[] = []):
 
 /**
  * Fetch all available properties from Supabase.
- * Filters to status = 'Available' as required.
+ * Filters to status = 'Available' (case-insensitive) as required.
  */
 export async function getProperties(filter?: {
   type?: string;
@@ -87,21 +125,29 @@ export async function getProperties(filter?: {
   featured?: boolean;
 }): Promise<Property[]> {
   if (!isSupabaseConfigured()) {
-    return [];
+    if (import.meta.env?.DEV) {
+      console.warn('[properties-service] Supabase is not configured or environment variables are missing.');
+    }
+    throw new Error('Supabase database credentials are not configured.');
   }
 
   try {
+    // Tolerant status match: handles 'Available', 'AVAILABLE', 'available', and any surrounding whitespace
     let query = supabase
       .from('properties')
       .select('*')
-      .eq('status', 'Available')
+      .ilike('status', '%available%')
       .order('featured', { ascending: false })
       .order('created_at', { ascending: false });
 
     if (filter?.type && filter.type !== 'all') {
-      query = query.eq('property_type', filter.type);
+      if (filter.type === 'land') {
+        query = query.or('property_type.eq.land,property_type.eq.na_land,property_type.eq.agricultural');
+      } else {
+        query = query.eq('property_type', filter.type);
+      }
     }
-    if (filter?.city) {
+    if (filter?.city && filter.city !== 'all') {
       query = query.ilike('city', filter.city);
     }
     if (filter?.featured !== undefined) {
@@ -110,17 +156,35 @@ export async function getProperties(filter?: {
 
     const { data, error } = await query;
 
-    if (error || !data || data.length === 0) {
+    if (error) {
+      if (import.meta.env?.DEV) {
+        console.error('[properties-service] Supabase query failure:', {
+          code: error.code,
+          message: error.message,
+          hint: error.hint,
+        });
+      }
+      throw new Error(error.message || 'Failed to fetch properties from database.');
+    }
+
+    if (!data || data.length === 0) {
+      if (import.meta.env?.DEV) {
+        console.log('[properties-service] Query returned 0 properties.');
+      }
       return [];
     }
 
-    // Fetch images for returned properties, sorted by display_order ASC
+    // Fetch gallery images for returned properties, sorted by display_order ASC
     const propertyIds = data.map((p) => p.id);
-    const { data: imagesData } = await supabase
+    const { data: imagesData, error: imagesError } = await supabase
       .from('property_images')
       .select('*')
       .in('property_id', propertyIds)
       .order('display_order', { ascending: true });
+
+    if (imagesError && import.meta.env?.DEV) {
+      console.warn('[properties-service] Non-fatal image fetch notice:', imagesError.message);
+    }
 
     const imagesByProperty = (imagesData || []).reduce<Record<string, PropertyImageRow[]>>(
       (acc, img) => {
@@ -131,10 +195,27 @@ export async function getProperties(filter?: {
       {}
     );
 
-    return data.map((row) => mapDatabaseProperty(row, imagesByProperty[row.id] || []));
+    const mappedProperties: Property[] = [];
+    for (const row of data) {
+      try {
+        mappedProperties.push(mapDatabaseProperty(row, imagesByProperty[row.id] || []));
+      } catch (mapErr) {
+        if (import.meta.env?.DEV) {
+          console.error('[properties-service] Error mapping property row id:', row.id, mapErr);
+        }
+      }
+    }
+
+    if (import.meta.env?.DEV) {
+      console.log(`[properties-service] Successfully retrieved and mapped ${mappedProperties.length} properties.`);
+    }
+
+    return mappedProperties;
   } catch (err) {
-    console.warn('Supabase getProperties notice:', err);
-    return [];
+    if (import.meta.env?.DEV) {
+      console.error('[properties-service] getProperties exception:', err);
+    }
+    throw err;
   }
 }
 

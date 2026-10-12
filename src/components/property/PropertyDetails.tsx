@@ -24,7 +24,7 @@ export const PropertyDetails: React.FC<PropertyDetailsProps> = ({ property }) =>
     return 'villa';
   };
 
-  const currentGalleryImage = property.gallery?.[activeImageIndex]?.url;
+  const currentGalleryImage = property.gallery?.[activeImageIndex]?.url || property.primaryImage;
   const isHttpImage = Boolean(
     currentGalleryImage &&
       (currentGalleryImage.startsWith('http://') ||
