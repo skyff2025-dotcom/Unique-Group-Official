@@ -24,6 +24,12 @@ import {
   addPropertyImageByUrl,
   AdminPropertyWithImages,
 } from '../../services/admin';
+import {
+  parseAreaInput,
+  embedAreaRangeInDescription,
+  extractRawAreaForInput,
+  cleanDescriptionForDisplay,
+} from '../../lib/area';
 import { ImageUploader } from '../../components/admin/ImageUploader';
 import { PropertyInsert, PropertyImageRow } from '../../types/database';
 
@@ -93,12 +99,12 @@ export const AdminPropertyFormPage: React.FC = () => {
             location: prop.location,
             city: prop.city,
             district: prop.district,
-            area: prop.area,
+            area: extractRawAreaForInput(prop) || (prop.area != null ? String(prop.area) : ''),
             area_unit: prop.area_unit,
             price: prop.price,
             price_display: prop.price_display || '',
             short_description: prop.short_description || '',
-            description: prop.description,
+            description: cleanDescriptionForDisplay(prop.description) || prop.description,
             status: prop.status,
             featured: prop.featured,
             bedrooms: prop.bedrooms,
@@ -164,6 +170,23 @@ export const AdminPropertyFormPage: React.FC = () => {
       return;
     }
 
+    const areaStr = formData.area != null ? String(formData.area).trim() : '';
+    if (!areaStr) {
+      setErrorMessage('Area size is required.');
+      return;
+    }
+
+    const areaParse = parseAreaInput(areaStr);
+    if (!areaParse.valid) {
+      setErrorMessage(areaParse.error || 'Please provide a valid numeric area or area range.');
+      return;
+    }
+
+    if (!formData.description?.trim()) {
+      setErrorMessage('Property description is required.');
+      return;
+    }
+
     if (!formData.status?.trim()) {
       setErrorMessage('Status is required.');
       return;
@@ -186,8 +209,14 @@ export const AdminPropertyFormPage: React.FC = () => {
         return;
       }
 
+      const finalDescription = areaParse.isRange && areaParse.displayArea
+        ? embedAreaRangeInDescription(formData.description, areaParse.displayArea, formData.area_unit || 'sq.ft')
+        : cleanDescriptionForDisplay(formData.description);
+
       const payload: PropertyInsert = {
         ...formData,
+        area: areaParse.numericArea!, // Send numeric lower bound to PostgreSQL
+        description: finalDescription,
         slug: currentSlug,
         // If not residential, clear bedrooms and bathrooms
         bedrooms: isResidentialType ? formData.bedrooms : null,
@@ -561,9 +590,12 @@ export const AdminPropertyFormPage: React.FC = () => {
                   required
                   value={formData.area}
                   onChange={(e) => setFormData({ ...formData, area: e.target.value })}
-                  placeholder="e.g. 4,200 or 4"
+                  placeholder="e.g. 6500 or 6500–7000"
                   className="w-full min-h-[44px] px-3.5 py-2 rounded-lg border border-[#D5CEBF] bg-[#FAF9F5] text-xs text-[#0A192F] focus:outline-none focus:border-[#C5A059]"
                 />
+                <span className="text-[11px] text-slate-400 mt-1 block">
+                  Enter single number (e.g. 6500) or range (e.g. 6500–7000). Hyphen, en dash, and em dash are supported.
+                </span>
               </div>
 
               <div>

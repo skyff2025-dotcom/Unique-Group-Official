@@ -1,6 +1,13 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { clearSettingsCache } from './settings';
 import {
+  parseAreaInput,
+  embedAreaRangeInDescription,
+  extractAreaDisplay,
+  extractRawAreaForInput,
+  cleanDescriptionForDisplay,
+} from '../lib/area';
+import {
   PropertyRow,
   PropertyInsert,
   PropertyUpdate,
@@ -214,6 +221,7 @@ export async function getAdminProperties(filters?: {
       );
       return {
         ...prop,
+        area: extractRawAreaForInput(prop) || prop.area,
         property_images: sortedImages,
         primary_image_url: sortedImages[0]?.image_url,
       };
@@ -242,6 +250,8 @@ export async function getAdminPropertyById(id: string): Promise<AdminPropertyWit
 
     return {
       ...data,
+      area: extractRawAreaForInput(data) || data.area,
+      description: cleanDescriptionForDisplay(data.description) || data.description,
       property_images: sortedImages,
       primary_image_url: sortedImages[0]?.image_url,
     };
@@ -269,6 +279,20 @@ export function sanitizePropertyPayload(raw: Partial<PropertyInsert>): PropertyI
     return isNaN(num) ? null : num;
   };
 
+  const areaUnit = cleanStr(raw.area_unit) || 'sq.ft';
+  const areaParsed = parseAreaInput(raw.area);
+  let description = (raw.description || '').trim();
+
+  // If a range is entered (e.g. 6500–7000), preserve full range in description
+  if (areaParsed.valid && areaParsed.isRange && areaParsed.displayArea) {
+    description = embedAreaRangeInDescription(description, areaParsed.displayArea, areaUnit);
+  } else if (areaParsed.valid && !areaParsed.isRange) {
+    description = cleanDescriptionForDisplay(description);
+  }
+
+  // Ensure numericArea (number) is always stored in the database numeric area column
+  const finalArea = areaParsed.valid && areaParsed.numericArea != null ? areaParsed.numericArea : (raw.area as any);
+
   return {
     title: (raw.title || '').trim(),
     slug: (raw.slug || '').trim(),
@@ -277,12 +301,12 @@ export function sanitizePropertyPayload(raw: Partial<PropertyInsert>): PropertyI
     location: (raw.location || '').trim(),
     city: cleanStr(raw.city) || 'Rajpipla',
     district: cleanStr(raw.district) || 'Narmada',
-    area: (raw.area || '').trim(),
-    area_unit: cleanStr(raw.area_unit) || 'sq.ft',
+    area: finalArea,
+    area_unit: areaUnit,
     price: cleanNum(raw.price),
     price_display: cleanStr(raw.price_display),
     short_description: cleanStr(raw.short_description),
-    description: (raw.description || '').trim(),
+    description,
     status: cleanStr(raw.status) || 'Available',
     featured: Boolean(raw.featured),
     bedrooms: cleanInt(raw.bedrooms),
@@ -299,24 +323,27 @@ export async function createProperty(rawPayload: PropertyInsert): Promise<{ data
     return { data: null, error: 'Database is not configured.' };
   }
 
-  const payload = sanitizePropertyPayload(rawPayload);
-
   // Validate required client-side fields
-  if (!payload.title) {
+  if (!rawPayload.title || !rawPayload.title.trim()) {
     return { data: null, error: 'Property title is required.' };
   }
-  if (!payload.slug) {
+  if (!rawPayload.slug || !rawPayload.slug.trim()) {
     return { data: null, error: 'URL slug is required.' };
   }
-  if (!payload.location) {
+  if (!rawPayload.location || !rawPayload.location.trim()) {
     return { data: null, error: 'Location is required.' };
   }
-  if (!payload.area) {
-    return { data: null, error: 'Area size is required.' };
-  }
-  if (!payload.description) {
+  if (!rawPayload.description || !rawPayload.description.trim()) {
     return { data: null, error: 'Property description is required.' };
   }
+
+  // Strict area validation
+  const areaParsed = parseAreaInput(rawPayload.area);
+  if (!areaParsed.valid) {
+    return { data: null, error: areaParsed.error || 'Please provide a valid area size.' };
+  }
+
+  const payload = sanitizePropertyPayload(rawPayload);
 
   try {
     const { data, error } = await supabase
@@ -335,6 +362,12 @@ export async function createProperty(rawPayload: PropertyInsert): Promise<{ data
 
       if (error.code === '23505') {
         return { data: null, error: 'A property with this URL slug already exists. Please customize the slug.' };
+      }
+      if (error.code === '22P02') {
+        return {
+          data: null,
+          error: 'Invalid numeric input for database fields (such as area or price). Please enter valid numbers.',
+        };
       }
       if (error.code === '42501') {
         return {
@@ -403,6 +436,23 @@ export async function updateProperty(
     return isNaN(num) ? null : num;
   };
 
+  const areaUnit = rawPayload.area_unit !== undefined ? (cleanStr(rawPayload.area_unit) || 'sq.ft') : 'sq.ft';
+  let finalArea: number | undefined = undefined;
+  let finalDesc: string | undefined = rawPayload.description !== undefined ? (rawPayload.description || '').trim() : undefined;
+
+  if (rawPayload.area !== undefined) {
+    const areaParsed = parseAreaInput(rawPayload.area);
+    if (!areaParsed.valid) {
+      return { data: null, error: areaParsed.error || 'Please provide a valid area size.' };
+    }
+    finalArea = areaParsed.numericArea;
+    if (areaParsed.isRange && areaParsed.displayArea) {
+      finalDesc = embedAreaRangeInDescription(finalDesc || '', areaParsed.displayArea, areaUnit);
+    } else if (finalDesc !== undefined) {
+      finalDesc = cleanDescriptionForDisplay(finalDesc);
+    }
+  }
+
   const payload: PropertyUpdate = {
     ...rawPayload,
     title: rawPayload.title !== undefined ? (rawPayload.title || '').trim() : undefined,
@@ -412,12 +462,12 @@ export async function updateProperty(
     location: rawPayload.location !== undefined ? (rawPayload.location || '').trim() : undefined,
     city: rawPayload.city !== undefined ? (cleanStr(rawPayload.city) || 'Rajpipla') : undefined,
     district: rawPayload.district !== undefined ? (cleanStr(rawPayload.district) || 'Narmada') : undefined,
-    area: rawPayload.area !== undefined ? (rawPayload.area || '').trim() : undefined,
-    area_unit: rawPayload.area_unit !== undefined ? (cleanStr(rawPayload.area_unit) || 'sq.ft') : undefined,
+    area: finalArea,
+    area_unit: rawPayload.area_unit !== undefined ? areaUnit : undefined,
     price: cleanNum(rawPayload.price),
     price_display: cleanStr(rawPayload.price_display),
     short_description: cleanStr(rawPayload.short_description),
-    description: rawPayload.description !== undefined ? (rawPayload.description || '').trim() : undefined,
+    description: finalDesc,
     status: rawPayload.status !== undefined ? (cleanStr(rawPayload.status) || 'Available') : undefined,
     featured: rawPayload.featured !== undefined ? Boolean(rawPayload.featured) : undefined,
     bedrooms: cleanInt(rawPayload.bedrooms),
@@ -446,6 +496,12 @@ export async function updateProperty(
 
       if (error.code === '23505') {
         return { data: null, error: 'A property with this URL slug already exists. Please choose a unique slug.' };
+      }
+      if (error.code === '22P02') {
+        return {
+          data: null,
+          error: 'Invalid numeric input for database fields (such as area or price). Please enter valid numbers.',
+        };
       }
       if (error.code === '42501') {
         return {

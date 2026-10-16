@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Property, PropertyType, PropertyStatus } from '../types';
 import { PropertyRow, PropertyImageRow } from '../types/database';
+import { extractAreaDisplay, cleanDescriptionForDisplay } from '../lib/area';
 
 /**
  * Transforms a Supabase property row and its gallery images into the application Property model.
@@ -52,14 +53,10 @@ function mapDatabaseProperty(row: PropertyRow, images: PropertyImageRow[] = []):
     fallbackImagesByType[row.property_type] ||
     fallbackImagesByType.residential;
 
-  // Safe area parsing: row.area in PostgreSQL may be number or string
-  const rawAreaStr = row.area != null ? String(row.area).trim() : '';
+  // Robust area display (handles single numeric or preserved range like 6500–7000 sq.ft)
+  const formattedArea = extractAreaDisplay(row);
   const areaUnitStr = (row.area_unit || 'sq.ft').trim();
-  const formattedArea = rawAreaStr
-    ? rawAreaStr.toLowerCase().includes(areaUnitStr.toLowerCase())
-      ? rawAreaStr
-      : `${rawAreaStr} ${areaUnitStr}`
-    : `— ${areaUnitStr}`;
+  const cleanDescription = cleanDescriptionForDisplay(row.description);
 
   // Safe price formatting
   let formattedPrice = 'Price on Request';
@@ -95,8 +92,8 @@ function mapDatabaseProperty(row: PropertyRow, images: PropertyImageRow[] = []):
     bedrooms: row.bedrooms ?? undefined,
     bathrooms: row.bathrooms ?? undefined,
     featured: Boolean(row.featured),
-    shortDescription: (row.short_description || '').trim() || ((row.description || '').slice(0, 140) + '...'),
-    fullDescription: row.description,
+    shortDescription: (row.short_description || '').trim() || (cleanDescription.slice(0, 140) + '...'),
+    fullDescription: cleanDescription || row.description,
     features: [
       'Collector Approved Clear NA / Legal Title',
       'Direct Frontage with Paved Access Road',

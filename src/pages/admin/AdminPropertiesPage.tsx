@@ -353,7 +353,9 @@ export const AdminPropertiesPage: React.FC = () => {
 
                       {/* Area */}
                       <td className="py-3.5 px-4 font-medium text-slate-700 whitespace-nowrap">
-                        {prop.area} {prop.area_unit}
+                        {String(prop.area || '').toLowerCase().includes((prop.area_unit || '').toLowerCase())
+                          ? prop.area
+                          : `${prop.area || '—'} ${prop.area_unit || ''}`.trim()}
                       </td>
 
                       {/* Price */}
@@ -500,7 +502,9 @@ export const AdminPropertiesPage: React.FC = () => {
                     <div>
                       <span className="text-slate-400 block text-[10px] uppercase">Area</span>
                       <span className="font-medium text-slate-700 truncate block">
-                        {prop.area} {prop.area_unit}
+                        {String(prop.area || '').toLowerCase().includes((prop.area_unit || '').toLowerCase())
+                          ? prop.area
+                          : `${prop.area || '—'} ${prop.area_unit || ''}`.trim()}
                       </span>
                     </div>
                     <div>

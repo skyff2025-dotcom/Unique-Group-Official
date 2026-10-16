@@ -19,7 +19,7 @@ export interface Database {
           location: string;
           city: string;
           district: string;
-          area: string;
+          area: number | string;
           area_unit: string;
           price: number | null;
           price_display: string | null;
@@ -45,7 +45,7 @@ export interface Database {
           location: string;
           city?: string;
           district?: string;
-          area: string;
+          area: number | string;
           area_unit?: string;
           price?: number | null;
           price_display?: string | null;
@@ -71,7 +71,7 @@ export interface Database {
           location?: string;
           city?: string;
           district?: string;
-          area?: string;
+          area?: number | string;
           area_unit?: string;
           price?: number | null;
           price_display?: string | null;
