@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Phone, MessageSquare, Check, ArrowLeft, ShieldCheck, FileCheck, ExternalLink, Bed, Bath, Compass, CheckCircle2 } from 'lucide-react';
+import { MapPin, Phone, MessageSquare, ArrowLeft, FileCheck, ExternalLink, Bed, Bath } from 'lucide-react';
 import { Property } from '../../types';
 import { VisualAsset } from '../common/VisualAsset';
 import { EnquiryForm } from '../common/EnquiryForm';
@@ -38,7 +38,7 @@ export const PropertyDetails: React.FC<PropertyDetailsProps> = ({ property }) =>
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Breadcrumb & Navigation */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <Link
@@ -62,9 +62,10 @@ export const PropertyDetails: React.FC<PropertyDetailsProps> = ({ property }) =>
         </div>
       </div>
 
-      {/* Main Showcase Hero */}
+      {/* Main Showcase Hero Container */}
       <div className="bg-white rounded-xl overflow-hidden border border-[#E8E4D8] shadow-sm">
-        <div className="relative aspect-[16/9] sm:aspect-[21/9] max-h-[500px] w-full overflow-hidden bg-[#0A192F]">
+        {/* Dedicated Media Visual Area - No overlapping text */}
+        <div className="relative aspect-[16/10] sm:aspect-[16/9] md:aspect-[21/9] max-h-[460px] w-full overflow-hidden bg-[#0A192F]">
           {isHttpImage && !imgLoadError[activeImageIndex] ? (
             <img
               src={currentGalleryImage}
@@ -82,60 +83,17 @@ export const PropertyDetails: React.FC<PropertyDetailsProps> = ({ property }) =>
               className="w-full h-full object-cover"
             />
           )}
-
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/30" />
-
-          {/* Top badges */}
-          <div className="absolute top-4 left-4 flex flex-wrap items-center gap-2">
-            {property.featured && (
-              <span className="text-xs font-bold tracking-wider uppercase px-3 py-1 rounded bg-[#C5A059] text-[#0A192F] shadow-sm">
-                FEATURED
-              </span>
-            )}
-            <span className="text-xs font-semibold tracking-wider uppercase px-3 py-1 rounded bg-[#0A192F] text-[#E2C98D] border border-[#C5A059]/40">
-              {property.statusLabel}
-            </span>
-            <span className="text-xs font-medium px-2.5 py-1 rounded bg-white/90 text-[#0A192F] backdrop-blur-sm">
-              {property.listingType || 'For Sale'}
-            </span>
-            <span className="text-xs font-medium px-2.5 py-1 rounded bg-white/90 text-[#0A192F] backdrop-blur-sm">
-              {property.typeLabel}
-            </span>
-          </div>
-
-          {/* Bottom Title Bar over image */}
-          <div className="absolute bottom-6 left-6 right-6 flex flex-col md:flex-row md:items-end justify-between gap-4 text-white">
-            <div className="space-y-1.5 max-w-2xl">
-              <h1 className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold">
-                {property.title}
-              </h1>
-              <div className="flex items-center gap-2 text-sm text-slate-200">
-                <MapPin className="w-4 h-4 text-[#C5A059] shrink-0" />
-                <span>
-                  {property.location}, {property.city}
-                  {property.district ? `, ${property.district}` : ''}
-                </span>
-              </div>
-            </div>
-
-            <div className="text-left md:text-right shrink-0">
-              <span className="text-xs text-slate-300 block uppercase tracking-wider">Demand Price</span>
-              <span className="font-serif text-3xl font-bold text-[#E2C98D]">
-                {property.formattedPrice}
-              </span>
-            </div>
-          </div>
         </div>
 
         {/* Gallery Thumbnails (if multiple images present) */}
         {property.gallery && property.gallery.length > 1 && (
-          <div className="p-3 bg-[#0A192F] flex items-center gap-2 overflow-x-auto">
+          <div className="p-2 sm:p-3 bg-[#0A192F] flex items-center gap-2 overflow-x-auto">
             {property.gallery.map((img, idx) => (
               <button
                 key={img.id || idx}
                 type="button"
                 onClick={() => setActiveImageIndex(idx)}
-                className={`relative w-20 h-14 rounded overflow-hidden border-2 transition-all shrink-0 ${
+                className={`relative w-16 h-12 sm:w-20 sm:h-14 rounded overflow-hidden border-2 transition-all shrink-0 ${
                   activeImageIndex === idx ? 'border-[#C5A059] scale-105' : 'border-transparent opacity-60 hover:opacity-90'
                 }`}
               >
@@ -152,27 +110,73 @@ export const PropertyDetails: React.FC<PropertyDetailsProps> = ({ property }) =>
           </div>
         )}
 
-        {/* Quick Spec Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#E8E4D8] border-b border-[#E8E4D8] bg-[#FDFCF9]">
-          <div className="p-4 text-center">
-            <span className="text-[11px] uppercase tracking-wider text-slate-500 block">Total Area</span>
-            <span className="text-sm font-semibold text-[#0A192F]">{property.area}</span>
-          </div>
-          <div className="p-4 text-center">
-            <span className="text-[11px] uppercase tracking-wider text-slate-500 block">Listing Category</span>
-            <span className="text-sm font-semibold text-[#0A192F]">{property.listingType || 'For Sale'}</span>
-          </div>
-          <div className="p-4 text-center">
-            <span className="text-[11px] uppercase tracking-wider text-slate-500 block">District / Region</span>
-            <span className="text-sm font-semibold text-[#0A192F]">
-              {property.district || 'Narmada'} · {property.city}
+        {/* Dedicated Property Header & Info Block (Safe vertical spacing, zero text clipping/overlap) */}
+        <div className="p-4 sm:p-6 md:p-8 space-y-4 bg-white border-b border-[#E8E4D8]">
+          {/* Status & Category Badges in wrapping flex */}
+          <div className="flex flex-wrap items-center gap-2">
+            {property.featured && (
+              <span className="text-[11px] font-bold tracking-wider uppercase px-2.5 py-1 rounded bg-[#C5A059] text-[#0A192F] shadow-xs">
+                FEATURED
+              </span>
+            )}
+            <span className="text-[11px] font-semibold tracking-wider uppercase px-2.5 py-1 rounded bg-[#0A192F] text-[#E2C98D] border border-[#C5A059]/40">
+              {property.statusLabel}
+            </span>
+            <span className="text-[11px] font-medium px-2.5 py-1 rounded bg-[#FAF9F5] text-slate-700 border border-[#E8E4D8]">
+              {property.listingType || 'For Sale'}
+            </span>
+            <span className="text-[11px] font-medium px-2.5 py-1 rounded bg-[#FAF9F5] text-[#8C6E2E] border border-[#E8E4D8]">
+              {property.typeLabel}
             </span>
           </div>
-          <div className="p-4 text-center">
-            <span className="text-[11px] uppercase tracking-wider text-slate-500 block">Title Verification</span>
-            <span className="text-sm font-semibold text-[#8C6E2E] flex items-center justify-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Title Clear</span>
+
+          {/* Title, Location & Demand Price Container */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-1">
+            <div className="space-y-2 min-w-0 flex-1">
+              <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-[#0A192F] leading-tight break-words">
+                {property.title}
+              </h1>
+              <div className="flex items-start gap-1.5 text-xs sm:text-sm text-slate-600">
+                <MapPin className="w-4 h-4 text-[#C5A059] shrink-0 mt-0.5" />
+                <span className="break-words">
+                  {property.location}, {property.city}
+                  {property.district ? `, ${property.district}` : ''}
+                </span>
+              </div>
+            </div>
+
+            {/* Demand Price */}
+            <div className="pt-3 md:pt-0 border-t md:border-t-0 border-[#F4F2EA] flex flex-row md:flex-col items-baseline md:items-end justify-between md:justify-end gap-2 shrink-0">
+              <span className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold block">
+                Demand Price
+              </span>
+              <span className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-[#8C6E2E] tracking-tight">
+                {property.formattedPrice}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Spec Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#E8E4D8] bg-[#FDFCF9]">
+          <div className="p-3.5 sm:p-4 text-center">
+            <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-slate-500 block font-medium">Total Area</span>
+            <span className="text-xs sm:text-sm font-semibold text-[#0A192F] mt-0.5 block break-words">{property.area}</span>
+          </div>
+          <div className="p-3.5 sm:p-4 text-center">
+            <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-slate-500 block font-medium">Listing Type</span>
+            <span className="text-xs sm:text-sm font-semibold text-[#0A192F] mt-0.5 block">{property.listingType || 'For Sale'}</span>
+          </div>
+          <div className="p-3.5 sm:p-4 text-center">
+            <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-slate-500 block font-medium">District / City</span>
+            <span className="text-xs sm:text-sm font-semibold text-[#0A192F] mt-0.5 block break-words">
+              {property.city}{property.district ? `, ${property.district}` : ''}
+            </span>
+          </div>
+          <div className="p-3.5 sm:p-4 text-center">
+            <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-slate-500 block font-medium">Availability</span>
+            <span className="text-xs sm:text-sm font-semibold text-[#8C6E2E] mt-0.5 block">
+              {property.statusLabel}
             </span>
           </div>
         </div>
@@ -181,7 +185,7 @@ export const PropertyDetails: React.FC<PropertyDetailsProps> = ({ property }) =>
       {/* Two Column Layout: Description & Specs vs Action Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Col: Details (8 cols) */}
-        <div className="lg:col-span-8 space-y-8">
+        <div className="lg:col-span-8 space-y-6 sm:space-y-8">
           {/* Bedrooms / Bathrooms Badges if applicable */}
           {(property.bedrooms || property.bathrooms) && (
             <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-[#E8E4D8] text-sm text-[#0A192F]">
@@ -220,23 +224,6 @@ export const PropertyDetails: React.FC<PropertyDetailsProps> = ({ property }) =>
               <span>
                 Legal search report, title clearance, and revenue record documentation handled end-to-end by Unique Group.
               </span>
-            </div>
-          </div>
-
-          {/* Key Features & Specifications */}
-          <div className="bg-white p-6 sm:p-8 rounded-xl border border-[#E8E4D8] space-y-6 shadow-sm">
-            <h2 className="font-serif text-2xl font-bold text-[#0A192F]">
-              Key Features &amp; Specifications
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {property.features.map((feature, idx) => (
-                <div key={idx} className="flex items-start gap-2.5 text-sm text-slate-800">
-                  <div className="w-5 h-5 rounded-full bg-[#FAF9F5] border border-[#C5A059] flex items-center justify-center shrink-0 mt-0.5 text-[#8C6E2E]">
-                    <Check className="w-3 h-3 stroke-[3]" />
-                  </div>
-                  <span>{feature}</span>
-                </div>
-              ))}
             </div>
           </div>
 

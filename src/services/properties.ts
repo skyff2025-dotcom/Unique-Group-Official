@@ -94,12 +94,7 @@ function mapDatabaseProperty(row: PropertyRow, images: PropertyImageRow[] = []):
     featured: Boolean(row.featured),
     shortDescription: (row.short_description || '').trim() || (cleanDescription.slice(0, 140) + '...'),
     fullDescription: cleanDescription || row.description,
-    features: [
-      'Collector Approved Clear NA / Legal Title',
-      'Direct Frontage with Paved Access Road',
-      'Electricity Grid & Water Connectivity Available',
-      'Immediate Registry & Mutation Support',
-    ],
+    features: [],
     primaryImage,
     gallery: sortedImages.map((img) => ({
       id: img.id,

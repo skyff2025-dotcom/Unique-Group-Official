@@ -39,8 +39,8 @@ export const PropertyDetailPage: React.FC = () => {
   }, [identifier]);
 
   return (
-    <div className="pt-24 pb-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="pt-20 sm:pt-24 pb-28 sm:pb-24 lg:pb-20">
+      <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
         {loading ? (
           <PropertyDetailSkeleton />
         ) : property ? (
